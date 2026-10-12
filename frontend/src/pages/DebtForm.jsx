@@ -1,136 +1,99 @@
 import { useState } from "react";
+import { api, useLoad } from "../api";
+import { money, num } from "../format";
+import { Card, ErrorBox, Field, Loading, PageHead, Stat } from "../components/ui";
+
+const loadDebts = () => api.get("/debts");
 
 export default function DebtForm() {
-    const [name, setName] = useState("");
-    const [balance, setBalance] = useState("");
-    const [apr, setApr] = useState("");
-    const [minPayment, setMinPayment] = useState("");
+  const { data: debts, error, loading, reload } = useLoad(loadDebts);
+  const [name, setName] = useState("");
+  const [balance, setBalance] = useState("");
+  const [apr, setApr] = useState("");
+  const [minPayment, setMinPayment] = useState("");
+  const [formError, setFormError] = useState(null);
 
-    const [debts, setDebts] = useState([]);
-
-    const totalDebt = debts.reduce((sum, d) => sum + d.balance, 0);
-
-    function handleAddDebt(e) {
-        e.preventDefault();
-        const balanceNum = parseFloat(balance);
-        const aprNum = parseFloat(apr);
-        const minPaymentNum = parseFloat(minPayment);
-        if (!name || !balanceNum || balanceNum <= 0) return;
-
-        const newDebt = {
-            id: crypto.randomUUID(),
-            name,
-            balance: balanceNum,
-            apr: aprNum || 0,
-            minPayment: minPaymentNum || 0,
-        };
-
-        setDebts([...debts, newDebt]);
-        setName("");
-        setBalance("");
-        setApr("");
-        setMinPayment("");
+  async function add(e) {
+    e.preventDefault();
+    setFormError(null);
+    try {
+      await api.post("/debts", { name, balance: num(balance), apr: num(apr), minPayment: num(minPayment) });
+      setName("");
+      setBalance("");
+      setApr("");
+      setMinPayment("");
+      reload();
+    } catch (err) {
+      setFormError(err.message);
     }
+  }
 
-    function handleDelete(id) {
-        setDebts(debts.filter((d) => d.id !== id));
-    }
+  async function remove(id) {
+    await api.del(`/debts/${id}`);
+    reload();
+  }
 
-    return (
-        <div style={{ padding: 24, maxWidth: 640 }}>
-            <h1>Debts</h1>
-            <p style={{ color: "#999" }}>
-                Enter each debt separately — this feeds the payoff strategy comparison later.
-            </p>
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox message={error} />;
 
-            <form
-                onSubmit={handleAddDebt}
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}
-            >
-                <Field label="Debt name">
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Visa credit card"
-                    />
-                </Field>
+  const total = debts.reduce((sum, d) => sum + d.balance, 0);
+  const minimums = debts.reduce((sum, d) => sum + d.minPayment, 0);
 
-                <Field label="Balance">
-                    <input
-                        type="number"
-                        value={balance}
-                        onChange={(e) => setBalance(e.target.value)}
-                        placeholder="0.00"
-                    />
-                </Field>
+  return (
+    <>
+      <PageHead title="Debts" sub="Enter each debt separately - this feeds the payoff comparison and recommendations." />
 
-                <Field label="APR (%)">
-                    <input
-                        type="number"
-                        step="0.1"
-                        value={apr}
-                        onChange={(e) => setApr(e.target.value)}
-                        placeholder="24.0"
-                    />
-                </Field>
+      <div className="grid grid-2">
+        <Card>
+          <Stat label="Total debt" value={money(total)} />
+        </Card>
+        <Card>
+          <Stat label="Monthly minimums" value={money(minimums)} />
+        </Card>
+      </div>
 
-                <Field label="Minimum payment">
-                    <input
-                        type="number"
-                        value={minPayment}
-                        onChange={(e) => setMinPayment(e.target.value)}
-                        placeholder="0.00"
-                    />
-                </Field>
-
-                <button type="submit" style={{ gridColumn: "1 / -1" }}>
-                    Add debt
+      <div className="split">
+        <Card title="Your debts">
+          {debts.length === 0 && <p className="muted">No debts added yet.</p>}
+          {debts.map((d) => (
+            <div key={d.id} className="list-row">
+              <div>
+                <div>{d.name}</div>
+                <div className="muted small">
+                  {d.apr}% APR · {money(d.minPayment)} minimum / month
+                </div>
+              </div>
+              <div className="row">
+                <strong>{money(d.balance)}</strong>
+                <button type="button" className="btn danger small" onClick={() => remove(d.id)}>
+                  Delete
                 </button>
-            </form>
-
-            <div style={{ marginTop: 24, padding: 16, background: "#1e2a24", borderRadius: 8 }}>
-                <div style={{ fontSize: 12, color: "#aaa" }}>Total debt</div>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>${totalDebt.toFixed(2)}</div>
+              </div>
             </div>
+          ))}
+        </Card>
 
-            <div style={{ marginTop: 16 }}>
-                {debts.length === 0 && <p style={{ color: "#777" }}>No debts added yet.</p>}
-                {debts.map((debt) => (
-                    <div
-                        key={debt.id}
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "10px 0",
-                            borderBottom: "1px solid #333",
-                        }}
-                    >
-                        <div>
-                            <div>{debt.name}</div>
-                            <div style={{ fontSize: 12, color: "#999" }}>
-                                {debt.apr}% APR · ${debt.minPayment.toFixed(2)} min/mo
-                            </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div>${debt.balance.toFixed(2)}</div>
-                            <button type="button" onClick={() => handleDelete(debt.id)}>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function Field({ label, children }) {
-    return (
-        <label style={{ display: "block" }}>
-            <div style={{ fontSize: 13, color: "#aaa", marginBottom: 4 }}>{label}</div>
-            {children}
-        </label>
-    );
+        <Card title="Add a debt">
+          {formError && <ErrorBox message={formError} />}
+          <form onSubmit={add} className="grid">
+            <Field label="Debt name">
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Visa credit card" />
+            </Field>
+            <Field label="Balance">
+              <input type="number" step="0.01" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="0.00" />
+            </Field>
+            <Field label="APR (%)">
+              <input type="number" step="0.1" value={apr} onChange={(e) => setApr(e.target.value)} placeholder="24.0" />
+            </Field>
+            <Field label="Minimum payment">
+              <input type="number" step="0.01" value={minPayment} onChange={(e) => setMinPayment(e.target.value)} placeholder="0.00" />
+            </Field>
+            <button className="btn" type="submit">
+              Add debt
+            </button>
+          </form>
+        </Card>
+      </div>
+    </>
+  );
 }

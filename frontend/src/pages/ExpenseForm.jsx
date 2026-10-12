@@ -1,150 +1,110 @@
 import { useState } from "react";
+import { api, useLoad } from "../api";
+import { money, num, todayISO } from "../format";
+import { Card, ErrorBox, Field, Loading, PageHead, Stat } from "../components/ui";
 
-const CATEGORIES = [
-    "Housing",
-    "Groceries",
-    "Dining",
-    "Transportation",
-    "Utilities",
-    "Shopping",
-    "Other",
-];
+const CATEGORIES = ["Housing", "Groceries", "Dining", "Transportation", "Utilities", "Shopping", "Other"];
+
+const loadBudget = async () => {
+  const [expenses, summary] = await Promise.all([api.get("/expenses"), api.get("/summary")]);
+  return { expenses, summary };
+};
 
 export default function ExpenseForm() {
-    // Form fields — same controlled-input pattern as PaycheckForm.
-    const [description, setDescription] = useState("");
-    const [category, setCategory] = useState(CATEGORIES[0]);
-    const [amount, setAmount] = useState("");
-    const [date, setDate] = useState("");
+  const { data, error, loading, reload } = useLoad(loadBudget);
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [formError, setFormError] = useState(null);
 
-    // NEW: a list lives in state too. Each entry is a plain object.
-    // Arrays and objects in React state are never mutated directly
-    // (no .push()) — you always create a new array/object and call
-    // the setter, which is why handleAddExpense below uses [...expenses, newExpense]
-    // instead of expenses.push(newExpense).
-    const [expenses, setExpenses] = useState([]);
-
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-
-    function handleAddExpense(e) {
-        e.preventDefault(); // stop the form from reloading the page
-        const amountNum = parseFloat(amount);
-        if (!description || !amountNum || amountNum <= 0) return; // basic guard
-
-        const newExpense = {
-            id: crypto.randomUUID(), // generates a unique id per entry
-            description,
-            category,
-            amount: amountNum,
-            date: date || new Date().toISOString().slice(0, 10),
-        };
-
-        setExpenses([...expenses, newExpense]); // new array, not a mutation
-        setDescription("");
-        setAmount("");
-        setDate("");
+  async function add(e) {
+    e.preventDefault();
+    setFormError(null);
+    try {
+      await api.post("/expenses", { description, category, amount: num(amount), expenseDate: date });
+      setDescription("");
+      setAmount("");
+      reload();
+    } catch (err) {
+      setFormError(err.message);
     }
+  }
 
-    function handleDelete(id) {
-        // Keep every expense whose id does NOT match the one clicked.
-        setExpenses(expenses.filter((e) => e.id !== id));
-    }
+  async function remove(id) {
+    await api.del(`/expenses/${id}`);
+    reload();
+  }
 
-    return (
-        <div style={{ padding: 24, maxWidth: 640 }}>
-            <h1>Expenses</h1>
-            <p style={{ color: "#999" }}>Log what you spend and where it's going.</p>
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox message={error} />;
+  const { expenses, summary: s } = data;
 
-            <form
-                onSubmit={handleAddExpense}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginTop: 16 }}
-            >
-                <Field label="Description">
-                    <input
-                        type="text"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Whole Foods"
-                    />
-                </Field>
+  return (
+    <>
+      <PageHead title="Budget & Expenses" sub="Log what you spend and see what is left this month." />
 
-                <Field label="Category">
-                    {/* A <select> is still a controlled input: value + onChange,
-              same as a text input. */}
-                    <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                        {CATEGORIES.map((c) => (
-                            <option key={c} value={c}>
-                                {c}
-                            </option>
-                        ))}
-                    </select>
-                </Field>
+      <div className="grid grid-4">
+        <Card>
+          <Stat label="Monthly take-home" value={money(s.monthlyTakeHome)} />
+        </Card>
+        <Card>
+          <Stat label="Spent this month" value={money(s.monthlyExpenses)} />
+        </Card>
+        <Card>
+          <Stat label="Debt minimums" value={money(s.monthlyDebtMinimums)} />
+        </Card>
+        <Card>
+          <Stat label="Left over" value={money(s.monthlySurplus)} tone={s.monthlySurplus < 0 ? "bad" : "good"} hint={s.monthlySurplus < 0 ? "Deficit" : "Surplus"} />
+        </Card>
+      </div>
 
-                <Field label="Amount">
-                    <input
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                    />
-                </Field>
-
-                <Field label="Date">
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </Field>
-
-                <button type="submit" style={{ gridColumn: "1 / -1" }}>
-                    Add expense
+      <div className="split">
+        <Card title="Expenses">
+          {expenses.length === 0 && <p className="muted">No expenses logged yet.</p>}
+          {expenses.map((x) => (
+            <div key={x.id} className="list-row">
+              <div>
+                <div>{x.description}</div>
+                <div className="muted small">
+                  {x.category} · {x.expenseDate}
+                </div>
+              </div>
+              <div className="row">
+                <strong>{money(x.amount)}</strong>
+                <button type="button" className="btn danger small" onClick={() => remove(x.id)}>
+                  Delete
                 </button>
-            </form>
-
-            <div style={{ marginTop: 24, padding: 16, background: "#1e2a24", borderRadius: 8 }}>
-                <div style={{ fontSize: 12, color: "#aaa" }}>Total this list</div>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>${total.toFixed(2)}</div>
+              </div>
             </div>
+          ))}
+        </Card>
 
-            {/* .map() turns each item in the array into a piece of UI.
-          React needs a unique "key" prop on each item so it can tell
-          them apart when the list changes — that's what expense.id is for. */}
-            <div style={{ marginTop: 16 }}>
-                {expenses.length === 0 && (
-                    <p style={{ color: "#777" }}>No expenses logged yet.</p>
-                )}
-                {expenses.map((expense) => (
-                    <div
-                        key={expense.id}
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "10px 0",
-                            borderBottom: "1px solid #333",
-                        }}
-                    >
-                        <div>
-                            <div>{expense.description}</div>
-                            <div style={{ fontSize: 12, color: "#999" }}>
-                                {expense.category} · {expense.date}
-                            </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div>${expense.amount.toFixed(2)}</div>
-                            <button type="button" onClick={() => handleDelete(expense.id)}>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
+        <Card title="Add an expense">
+          {formError && <ErrorBox message={formError} />}
+          <form onSubmit={add} className="grid">
+            <Field label="Description">
+              <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Whole Foods" />
+            </Field>
+            <Field label="Category">
+              <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                {CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
                 ))}
-            </div>
-        </div>
-    );
-}
-
-function Field({ label, children }) {
-    return (
-        <label style={{ display: "block" }}>
-            <div style={{ fontSize: 13, color: "#aaa", marginBottom: 4 }}>{label}</div>
-            {children}
-        </label>
-    );
+              </select>
+            </Field>
+            <Field label="Amount">
+              <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            </Field>
+            <Field label="Date">
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <button className="btn" type="submit">
+              Add expense
+            </button>
+          </form>
+        </Card>
+      </div>
+    </>
+  );
 }
