@@ -1,0 +1,19 @@
+# Optional: a ready-made PostgreSQL for anyone who does not want to install it.
+#   docker compose up -d db
+# Defaults match backend/src/main/resources/application.properties.
+# If port 5432 is taken (you already run PostgreSQL), use another port:
+#   set DB_PORT=5433   (then also set DB_URL=jdbc:postgresql://localhost:5433/breathingroom in backend/.env)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: breathingroom
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - breathingroom-data:/var/lib/postgresql/data
+
+volumes:
+  breathingroom-data:

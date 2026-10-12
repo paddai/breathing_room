@@ -1,137 +1,75 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { api, useLoad } from "../api";
+import { money, pct } from "../format";
+import { Badge, Card, ErrorBox, Loading, Notice, PageHead, Stat } from "../components/ui";
 
-// PLACEHOLDER DATA — once the Paycheck and Debts forms save to the
-// backend, these four values should be fetched from there instead of
-// hardcoded here. Everything else on this page is real working logic.
-const SAMPLE_GROSS_PAY_PER_PAYCHECK = 2150; // biweekly
-const SAMPLE_401K_PERCENT = 9; // what the user currently contributes
-const SAMPLE_EMPLOYER_MATCH_PERCENT = 6; // employer matches up to this %
-const SAMPLE_HIGHEST_APR_DEBT = { name: "Credit card", apr: 24, balance: 4200 };
+const loadRecommendation = () => api.get("/recommendation");
 
 export default function RecommendationScreen() {
-    const [selectedOption, setSelectedOption] = useState(null);
+  const { data, error, loading } = useLoad(loadRecommendation);
+  const [selected, setSelected] = useState(null);
 
-    // Task 7.1: compare current 401(k) contribution with the employer match
-    const contributionAboveMatch = Math.max(
-        0,
-        SAMPLE_401K_PERCENT - SAMPLE_EMPLOYER_MATCH_PERCENT
-    );
+  if (loading) return <Loading text="Checking your numbers..." />;
+  if (error) return <ErrorBox message={error} />;
 
-    // Task 7.3: dollar amount above the match, per paycheck
-    const amountAboveMatchPerPaycheck =
-        SAMPLE_GROSS_PAY_PER_PAYCHECK * (contributionAboveMatch / 100);
+  const { facts: f, explanation, aiUsed, aiNote } = data;
 
-    // Task 7.2: is there high-interest debt to flag against it?
-    // 7% is used here as a simple "better than a typical market return"
-    // threshold — the same reasoning used in the design document's
-    // priority waterfall (see Capstone_Design_Document.docx).
-    const hasHighInterestDebt = SAMPLE_HIGHEST_APR_DEBT.apr > 7;
+  return (
+    <>
+      <PageHead title="401(k) vs. Debt" sub="Is extra retirement saving crowding out your high-interest debt payoff?" />
 
-    // Task 7.5: rough current-vs-alternative comparison. This is a
-    // simplified estimate (one year, simple interest), not a full
-    // amortization simulation like DebtComparison.jsx — enough to make
-    // the recommendation concrete without re-deriving the whole payoff.
-    const annualAmountIfRedirected = amountAboveMatchPerPaycheck * 26; // 26 biweekly paychecks/year
-    const estimatedInterestSaved =
-        annualAmountIfRedirected * (SAMPLE_HIGHEST_APR_DEBT.apr / 100);
+      {!f.hasData ? (
+        <Notice tone="warn">
+          {f.message} Go to <Link to="/paycheck">Paycheck</Link> (and <Link to="/debts">Debts</Link>).
+        </Notice>
+      ) : (
+        <>
+          <div className="grid grid-4">
+            <Card>
+              <Stat label="Your 401(k)" value={pct(f.contributionPercent)} />
+            </Card>
+            <Card>
+              <Stat label="Employer match up to" value={pct(f.matchLimitPercent)} />
+            </Card>
+            <Card>
+              <Stat label="Above the match" value={pct(f.contributionAbovePercent)} hint={`${money(f.amountAbovePerPeriod)} per paycheck`} />
+            </Card>
+            <Card>
+              <Stat label="Highest-APR debt" value={f.debtName ? `${f.debtApr}%` : "None"} hint={f.debtName} />
+            </Card>
+          </div>
 
-    const showRecommendation = contributionAboveMatch > 0 && hasHighInterestDebt;
-
-    const options = [
-        {
-            id: "reduce-401k",
-            label: `Lower 401(k) to ${SAMPLE_EMPLOYER_MATCH_PERCENT}% (match only)`,
-            detail: `Redirect the difference to your ${SAMPLE_HIGHEST_APR_DEBT.name}. Fastest payoff, minimal change to retirement timeline.`,
-        },
-        {
-            id: "keep-401k",
-            label: "Keep 401(k) contribution the same",
-            detail: "Find the extra payment amount elsewhere in your budget instead.",
-        },
-        {
-            id: "keep-as-is",
-            label: "Keep everything as is",
-            detail: "You may have a reason — a vesting cliff, an upcoming raise, etc.",
-        },
-    ];
-
-    return (
-        <div style={{ padding: 24, maxWidth: 640 }}>
-            <h1>Recommendation</h1>
-            <p style={{ color: "#999" }}>
-                Comparing your 401(k) contribution against your employer's match and
-                your highest-interest debt (sample data, not yet connected to the
-                Paycheck and Debts forms).
-            </p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-                <Stat label="Your 401(k) contribution" value={`${SAMPLE_401K_PERCENT}%`} />
-                <Stat label="Employer match, up to" value={`${SAMPLE_EMPLOYER_MATCH_PERCENT}%`} />
-                <Stat
-                    label="Highest-APR debt"
-                    value={`${SAMPLE_HIGHEST_APR_DEBT.name} · ${SAMPLE_HIGHEST_APR_DEBT.apr}%`}
-                />
-                <Stat
-                    label="Contributing above match"
-                    value={`${contributionAboveMatch}% ($${amountAboveMatchPerPaycheck.toFixed(2)}/paycheck)`}
-                />
+          <Card className={f.flagged ? "accent-alert" : "accent-teal"} title={f.flagged ? "What this means" : "Looks balanced"}>
+            <p>{explanation}</p>
+            <div className="row">
+              {aiUsed ? <Badge tone="good">Explained by AI</Badge> : <Badge>Built-in explanation</Badge>}
+              <span className="muted small">{aiNote}</span>
             </div>
+            <p className="disclaimer">
+              Breathing Room calculated every number above. The AI only explains them in plain language - it does not change
+              anything. This is educational guidance, not financial, tax, or investment advice.
+            </p>
+          </Card>
 
-            {showRecommendation ? (
-                <div
-                    style={{
-                        marginTop: 24,
-                        padding: 16,
-                        borderRadius: 8,
-                        background: "#1e2a24",
-                        border: "1px solid #a24328",
-                    }}
-                >
-                    <p style={{ margin: 0 }}>
-                        You're contributing <strong>{contributionAboveMatch}% above</strong>{" "}
-                        your employer's match, while carrying a{" "}
-                        <strong>{SAMPLE_HIGHEST_APR_DEBT.apr}% APR</strong> balance on your{" "}
-                        {SAMPLE_HIGHEST_APR_DEBT.name}. Redirecting that amount could save
-                        roughly <strong>${estimatedInterestSaved.toFixed(2)}</strong> in
-                        interest over the next year.
-                    </p>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
-                        {options.map((opt) => (
-                            <label
-                                key={opt.id}
-                                onClick={() => setSelectedOption(opt.id)}
-                                style={{
-                                    display: "block",
-                                    padding: 12,
-                                    borderRadius: 6,
-                                    border:
-                                        selectedOption === opt.id ? "1px solid #2d6a4f" : "1px solid #444",
-                                    background: selectedOption === opt.id ? "#24352c" : "transparent",
-                                    cursor: "pointer",
-                                }}
-                            >
-                                <div style={{ fontWeight: 600 }}>{opt.label}</div>
-                                <div style={{ fontSize: 13, color: "#999" }}>{opt.detail}</div>
-                            </label>
-                        ))}
-                    </div>
+          {f.flagged && (
+            <Card title="Your options (you decide)">
+              {f.options.map((o) => (
+                <div key={o.id} className={`option ${selected === o.id ? "selected" : ""}`} onClick={() => setSelected(o.id)}>
+                  <strong>{o.label}</strong>
+                  <span className="muted small">{o.detail}</span>
                 </div>
-            ) : (
-                <p style={{ marginTop: 24, color: "#9fd6a8" }}>
-                    No mismatch found — your contribution isn't exceeding the match
-                    while carrying high-interest debt.
+              ))}
+              {selected && (
+                <p className="muted small">
+                  Noted for this visit. To act on it, update your 401(k) percentage on the <Link to="/paycheck">Paycheck</Link> page - Breathing
+                  Room never changes it for you.
                 </p>
-            )}
-        </div>
-    );
-}
-
-function Stat({ label, value }) {
-    return (
-        <div>
-            <div style={{ fontSize: 12, color: "#aaa" }}>{label}</div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{value}</div>
-        </div>
-    );
+              )}
+            </Card>
+          )}
+        </>
+      )}
+    </>
+  );
 }
