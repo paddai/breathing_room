@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 public class PaycheckProfile {
 
     @Id
-    private Long id = 1L;
+    private Long id; // equals the owner's user id (one profile per user)
 
     private String payType = "hourly";
 
@@ -27,6 +27,8 @@ public class PaycheckProfile {
     private double employerMatchRate;
 
     private double employerMatchLimit;
+
+    private Long userId;
 
     public PaycheckProfile() {}
 
@@ -62,5 +64,8 @@ public class PaycheckProfile {
 
     public double getEmployerMatchLimit() { return employerMatchLimit; }
     public void setEmployerMatchLimit(double employerMatchLimit) { this.employerMatchLimit = employerMatchLimit; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
 }

@@ -39,7 +39,8 @@ cd frontend
 npm install
 npm run dev
 ```
-Open <http://localhost:5173>, go to **Settings -> Load sample data**, and explore every page.
+Open <http://localhost:5173>, choose **Create account**, then go to **Settings -> Load sample data** and explore every page.
+Each account only ever sees its own data.
 
 ## Turn on the AI explanations (optional)
 Put your key in `backend/.env` as `OPENAI_API_KEY=...` and restart the backend. Without a key the app works the
@@ -49,10 +50,10 @@ same, using built-in explanations. The key stays on the server and is git-ignore
 | Page | What it does |
 |---|---|
 | Dashboard | Free money each month, spending by category, goals, debt, 401(k) alert |
-| Paycheck | Gross -> take-home pay, deductions, 401(k) and employer match (saved in the database) |
+| Paycheck | Gross -> take-home pay, deductions, 401(k) and employer match (calculated by the server, saved in the database) |
 | Budget & Expenses | Log expenses, see income vs. spending vs. debt minimums |
-| Debts / Debt Payoff | Track debts; compare avalanche and snowball with a month-by-month simulation |
-| 401(k) vs Debt | Flags contributions above the employer match while carrying high-interest debt |
+| Debts / Debt Payoff | Track debts; the server compares avalanche, snowball and minimums-only, month by month |
+| 401(k) vs Debt | Flags contributions above the employer match, then shows a what-if: keep your 401(k) vs lower it to the match and pay debt faster |
 | Goals | Savings goals with required monthly amount and status |
 | Advisor | Goal suggestions you approve or decline (with an audit log), plus "ask about my numbers" |
 | Settings | Sample data, AI status, privacy notes |
@@ -73,10 +74,22 @@ mvnw.cmd test                   (Mac/Linux: ./mvnw test)
 Covers the goal math and the AI "dollar guard".
 
 ## Known limitations (tracked in the to-do list)
-- No login yet: one shared demo profile. Authentication and per-user data are planned (to-do 14.x).
+- Accounts have no email check, password reset, or two-step sign-in yet. See `docs/SECURITY.md` for what is and is not protected.
 - Money is stored as `double` for the prototype; a production app should use `BigDecimal`.
 - HTTP only (local use). HTTPS and tighter CORS are needed before any real deployment.
 - Educational estimates only - not financial, tax, or investment advice.
+
+## Where the math lives
+Every money calculation is Java code in `backend/src/main/java/com/breathingroom/backend/logic/`: `PaycheckMath` (take-home pay), `DebtPayoff` (snowball and
+avalanche), `ScenarioMath` (the 401(k) what-if), `GoalMath` (goals) and `DollarGuard` (checks AI wording). The React pages only show what the server returns.
+These classes have no Spring or database code, so they are easy to unit test.
+
+## Documents
+`docs/API.md` (every REST endpoint), `docs/SECURITY.md` (how data is protected and what is not), `docs/user-flow.png` (user flow diagram).
+
+## Accounts and security
+Sign-up and sign-in use BCrypt-hashed passwords and signed tokens, and every row belongs to a user. Details, limits, and a deployment checklist are in
+`docs/SECURITY.md`. The REST endpoints are listed in `docs/API.md`. Set `JWT_SECRET` in `backend/.env` (see `.env.example`).
 
 ## Project layout
 ```

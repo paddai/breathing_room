@@ -2,6 +2,7 @@ package com.breathingroom.backend.service;
 
 import com.breathingroom.backend.dto.Dtos;
 import com.breathingroom.backend.logic.GoalMath;
+import com.breathingroom.backend.logic.PaycheckMath;
 import com.breathingroom.backend.model.Debt;
 import com.breathingroom.backend.model.Deduction;
 import com.breathingroom.backend.model.Expense;
@@ -47,30 +48,27 @@ public class FinanceService {
     }
 
     public static int periodsPerYear(String frequency) {
-        if (frequency == null) return 26;
-        return switch (frequency) {
-            case "weekly" -> 52;
-            case "semimonthly" -> 24;
-            case "monthly" -> 12;
-            default -> 26; // biweekly
-        };
+        return PaycheckMath.periodsPerYear(frequency);
     }
 
     public static double grossPerPeriod(PaycheckProfile p) {
-        if ("salary".equals(p.getPayType())) return p.getSalaryAmount();
-        return p.getHourlyRate() * p.getRegularHours()
-                + p.getHourlyRate() * p.getOvertimeHours() * p.getOvertimeMultiplier();
+        return PaycheckMath.grossPerPeriod(p.getPayType(), p.getHourlyRate(), p.getRegularHours(), p.getOvertimeHours(),
+                p.getOvertimeMultiplier(), p.getSalaryAmount());
     }
 
     // ------------------------------------------------------------------ paycheck (4.x)
 
-    public PaycheckProfile profile() {
-        return profileRepo.findById(1L).orElseGet(PaycheckProfile::new);
+    public PaycheckProfile profile(Long userId) {
+        return profileRepo.findById(userId).orElseGet(() -> {
+            PaycheckProfile fresh = new PaycheckProfile();
+            fresh.setId(userId);
+            return fresh;
+        });
     }
 
-    public Dtos.PaycheckDto paycheck() {
-        PaycheckProfile p = profile();
-        List<Deduction> stored = new ArrayList<>(deductionRepo.findAll());
+    public Dtos.PaycheckDto paycheck(Long userId) {
+        PaycheckProfile p = profile(userId);
+        List<Deduction> stored = new ArrayList<>(deductionRepo.findByUserId(userId));
         stored.sort((a, b) -> Long.compare(a.getId(), b.getId()));
         List<Dtos.DeductionDto> ds = new ArrayList<>();
         for (Deduction d : stored) ds.add(new Dtos.DeductionDto(d.getName(), d.getAmount()));
@@ -79,8 +77,7 @@ public class FinanceService {
                 p.getEmployerMatchRate(), p.getEmployerMatchLimit(), ds);
     }
 
-    @Transactional
-    public void savePaycheck(Dtos.PaycheckDto d) {
+    private static void validatePaycheck(Dtos.PaycheckDto d) {
         if (d == null) bad("Missing paycheck data.");
         if (!"hourly".equals(d.payType()) && !"salary".equals(d.payType())) bad("Pay type must be hourly or salary.");
         if (!List.of("weekly", "biweekly", "semimonthly", "monthly").contains(d.frequency())) bad("Unknown pay frequency.");
@@ -90,8 +87,25 @@ public class FinanceService {
         if (d.contribution401kPercent() > 100 || d.employerMatchLimit() > 100 || d.employerMatchRate() > 1000) {
             bad("Percentages look too large.");
         }
+    }
 
-        PaycheckProfile p = profile();
+    /** Live "what would my paycheck be?" for the Paycheck page. Calculates with the same formulas as the Summary; saves nothing. */
+    public Dtos.PaycheckPreview preview(Dtos.PaycheckDto d) {
+        validatePaycheck(d);
+        double deductions = 0;
+        if (d.deductions() != null) for (Dtos.DeductionDto x : d.deductions()) if (x.amount() > 0 && x.amount() <= 10_000_000) deductions += x.amount();
+        PaycheckMath.Result r = PaycheckMath.compute(d.payType(), d.frequency(), d.hourlyRate(), d.regularHours(), d.overtimeHours(),
+                d.overtimeMultiplier(), d.salaryAmount(), d.contribution401kPercent(), d.employerMatchRate(), d.employerMatchLimit(), deductions);
+        return new Dtos.PaycheckPreview(GoalMath.round2(r.grossPerPeriod()), r.periodsPerYear(), GoalMath.round2(r.grossPerYear()),
+                GoalMath.round2(r.totalDeductions()), GoalMath.round2(r.k401PerPeriod()), GoalMath.round2(r.employerMatchPerPeriod()),
+                GoalMath.round2(r.takeHomePerPeriod()), GoalMath.round2(r.takeHomePerMonth()));
+    }
+
+    @Transactional
+    public void savePaycheck(Long userId, Dtos.PaycheckDto d) {
+        validatePaycheck(d);
+
+        PaycheckProfile p = profile(userId);
         p.setPayType(d.payType());
         p.setHourlyRate(d.hourlyRate());
         p.setRegularHours(d.regularHours());
@@ -104,11 +118,12 @@ public class FinanceService {
         p.setEmployerMatchLimit(d.employerMatchLimit());
         profileRepo.save(p);
 
-        deductionRepo.deleteAll();
+        deductionRepo.deleteByUserId(userId);
         if (d.deductions() != null) {
             for (Dtos.DeductionDto x : d.deductions()) {
                 if (x.name() == null || x.name().isBlank() || x.amount() <= 0 || x.amount() > 10_000_000) continue;
                 Deduction ded = new Deduction();
+                ded.setUserId(userId);
                 ded.setName(clip(x.name(), 60));
                 ded.setAmount(x.amount());
                 deductionRepo.save(ded);
@@ -124,18 +139,20 @@ public class FinanceService {
 
     // ------------------------------------------------------------------ budget summary (5.4, 5.5, 6.4, 8.x)
 
-    public Dtos.SummaryDto summary() {
-        PaycheckProfile p = profile();
-        double gross = grossPerPeriod(p);
+    public Dtos.SummaryDto summary(Long userId) {
+        PaycheckProfile p = profile(userId);
         double deductionsTotal = 0;
-        for (Deduction d : deductionRepo.findAll()) deductionsTotal += d.getAmount();
-        double k401 = gross * p.getContribution401kPercent() / 100.0;
-        double takeHome = Math.max(0, gross - deductionsTotal - k401);
-        int periods = periodsPerYear(p.getFrequency());
+        for (Deduction d : deductionRepo.findByUserId(userId)) deductionsTotal += d.getAmount();
+        PaycheckMath.Result pay = PaycheckMath.compute(p.getPayType(), p.getFrequency(), p.getHourlyRate(), p.getRegularHours(),
+                p.getOvertimeHours(), p.getOvertimeMultiplier(), p.getSalaryAmount(), p.getContribution401kPercent(),
+                p.getEmployerMatchRate(), p.getEmployerMatchLimit(), deductionsTotal);
+        double gross = pay.grossPerPeriod();
+        double takeHome = pay.takeHomePerPeriod();
+        int periods = pay.periodsPerYear();
         double monthlyTakeHome = takeHome * periods / 12.0;
 
         LocalDate monthStart = LocalDate.now().withDayOfMonth(1);
-        List<Expense> all = new ArrayList<>(expenseRepo.findAll());
+        List<Expense> all = new ArrayList<>(expenseRepo.findByUserId(userId));
         Map<String, Double> byCategory = new LinkedHashMap<>();
         double monthlyExpenses = 0;
         for (Expense e : all) {
@@ -156,7 +173,7 @@ public class FinanceService {
 
         double totalDebt = 0;
         double minimums = 0;
-        for (Debt d : debtRepo.findAll()) {
+        for (Debt d : debtRepo.findByUserId(userId)) {
             totalDebt += d.getBalance();
             minimums += d.getMinPayment();
         }
@@ -164,7 +181,7 @@ public class FinanceService {
         int goalCount = 0;
         double saved = 0;
         double target = 0;
-        for (Goal g : goalRepo.findAll()) {
+        for (Goal g : goalRepo.findByUserId(userId)) {
             goalCount++;
             saved += g.getSavedAmount();
             target += g.getTargetAmount();
@@ -186,14 +203,14 @@ public class FinanceService {
         return new Dtos.RecommendationFacts(false, message, 0, 0, 0, 0, "", 0, 0, 0, false, List.of());
     }
 
-    public Dtos.RecommendationFacts recommendationFacts() {
-        PaycheckProfile p = profile();
+    public Dtos.RecommendationFacts recommendationFacts(Long userId) {
+        PaycheckProfile p = profile(userId);
         double gross = grossPerPeriod(p);
         if (gross <= 0) return noData("Enter your paycheck first so we can compare your 401(k) with your employer match.");
         if (p.getEmployerMatchLimit() <= 0) return noData("Add your employer match on the Paycheck page to see this comparison.");
 
         Debt top = null;
-        for (Debt d : debtRepo.findAll()) if (top == null || d.getApr() > top.getApr()) top = d;
+        for (Debt d : debtRepo.findByUserId(userId)) if (top == null || d.getApr() > top.getApr()) top = d;
 
         double above = Math.max(0, p.getContribution401kPercent() - p.getEmployerMatchLimit());
         double amountAbove = gross * above / 100.0;
@@ -220,9 +237,9 @@ public class FinanceService {
     // ------------------------------------------------------------------ goals (read side)
 
     public double availableForGoal(Goal g) {
-        double surplus = Math.max(0, summary().monthlySurplus());
+        double surplus = Math.max(0, summary(g.getUserId()).monthlySurplus());
         double others = 0;
-        for (Goal other : goalRepo.findAll()) {
+        for (Goal other : goalRepo.findByUserId(g.getUserId())) {
             if (!other.getId().equals(g.getId())) others += other.getMonthlyContribution();
         }
         return Math.max(0, surplus - others);
@@ -245,8 +262,8 @@ public class FinanceService {
                 GoalMath.round2(percent), months, required, status);
     }
 
-    public List<Dtos.GoalView> goalViews() {
-        List<Goal> all = new ArrayList<>(goalRepo.findAll());
+    public List<Dtos.GoalView> goalViews(Long userId) {
+        List<Goal> all = new ArrayList<>(goalRepo.findByUserId(userId));
         all.sort((a, b) -> Long.compare(a.getId(), b.getId()));
         List<Dtos.GoalView> out = new ArrayList<>();
         for (Goal g : all) out.add(goalView(g));

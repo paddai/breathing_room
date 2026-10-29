@@ -23,6 +23,8 @@ public class GoalDecision {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    private Long userId;
+
     public GoalDecision() {}
 
     public Long getId() { return id; }
@@ -45,5 +47,8 @@ public class GoalDecision {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
 }

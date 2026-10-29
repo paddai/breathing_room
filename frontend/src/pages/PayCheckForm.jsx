@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { money, num } from "../format";
+import { useDebounced } from "../hooks";
 import { Card, ErrorBox, Field, Notice, PageHead } from "../components/ui";
 
 const FREQUENCIES = {
@@ -50,17 +51,41 @@ export default function PaycheckForm() {
       .catch((e) => setError(e.message));
   }, []);
 
-  // ---- live math (same formulas the backend uses) ----
-  const rate = num(hourlyRate);
-  const regularPay = rate * num(regularHours);
-  const overtimePay = rate * num(overtimeHours) * num(overtimeMultiplier);
-  const grossPay = payType === "hourly" ? regularPay + overtimePay : num(salaryAmount);
-  const perYear = FREQUENCIES[frequency].perYear;
-  const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
-  const k401Amount = grossPay * (num(k401) / 100);
-  const matchedPercent = Math.min(num(k401), num(matchLimit));
-  const employerMatch = grossPay * (matchedPercent / 100) * (num(matchRate) / 100);
-  const takeHome = grossPay - totalDeductions - k401Amount;
+  // ---- the numbers on the right are calculated by the Java backend (nothing is calculated in the browser) ----
+  const payload = {
+    payType,
+    hourlyRate: num(hourlyRate),
+    regularHours: num(regularHours),
+    overtimeHours: num(overtimeHours),
+    overtimeMultiplier: num(overtimeMultiplier),
+    salaryAmount: num(salaryAmount),
+    frequency,
+    contribution401kPercent: num(k401),
+    employerMatchRate: num(matchRate),
+    employerMatchLimit: num(matchLimit),
+    deductions: deductions.map((d) => ({ name: d.name, amount: d.amount })),
+  };
+  const settledKey = useDebounced(JSON.stringify(payload), 300);
+  const [calc, setCalc] = useState(null);
+  const [calcError, setCalcError] = useState(null);
+  useEffect(() => {
+    let stale = false;
+    api
+      .post("/paycheck/preview", JSON.parse(settledKey))
+      .then((r) => {
+        if (!stale) {
+          setCalc(r);
+          setCalcError(null);
+        }
+      })
+      .catch((e) => {
+        if (!stale) setCalcError(e.message);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [settledKey]);
+  const c = calc ?? { grossPerPeriod: 0, periodsPerYear: FREQUENCIES[frequency].perYear, grossPerYear: 0, totalDeductions: 0, k401PerPeriod: 0, employerMatchPerPeriod: 0, takeHomePerPeriod: 0, takeHomePerMonth: 0 };
 
   function addDeduction(e) {
     e.preventDefault();
@@ -75,19 +100,7 @@ export default function PaycheckForm() {
     setMessage(null);
     setError(null);
     try {
-      await api.put("/paycheck", {
-        payType,
-        hourlyRate: num(hourlyRate),
-        regularHours: num(regularHours),
-        overtimeHours: num(overtimeHours),
-        overtimeMultiplier: num(overtimeMultiplier),
-        salaryAmount: num(salaryAmount),
-        frequency,
-        contribution401kPercent: num(k401),
-        employerMatchRate: num(matchRate),
-        employerMatchLimit: num(matchLimit),
-        deductions: deductions.map((d) => ({ name: d.name, amount: d.amount })),
-      });
+      await api.put("/paycheck", payload);
       setMessage("Saved. Your dashboard and recommendations now use these numbers.");
     } catch (e) {
       setError(e.message);
@@ -196,13 +209,16 @@ export default function PaycheckForm() {
 
         <Card title="Your paycheck">
           <div className="result-box">
-            <Stat2 label="Gross pay (this period)" value={money(grossPay)} />
-            <Stat2 label={`Annual gross (${FREQUENCIES[frequency].label.toLowerCase()})`} value={money(grossPay * perYear)} />
-            <Stat2 label="Total deductions" value={money(totalDeductions)} />
-            <Stat2 label="401(k) contribution" value={money(k401Amount)} />
-            <Stat2 label="Employer match (info)" value={money(employerMatch)} />
-            <Stat2 label="Estimated take-home" value={money(takeHome)} strong />
+            <Stat2 label="Gross pay (this paycheck)" value={money(c.grossPerPeriod)} />
+            <Stat2 label={`Annual gross (${FREQUENCIES[frequency].label.toLowerCase()})`} value={money(c.grossPerYear)} />
+            <Stat2 label="Total deductions" value={money(c.totalDeductions)} />
+            <Stat2 label="401(k) contribution" value={money(c.k401PerPeriod)} />
+            <Stat2 label="Employer match (free money)" value={money(c.employerMatchPerPeriod)} />
+            <Stat2 label="Pay periods per year" value={String(c.periodsPerYear)} />
+            <Stat2 label="Estimated take-home (this paycheck)" value={money(c.takeHomePerPeriod)} strong />
+            <Stat2 label="Take-home per month" value={money(c.takeHomePerMonth)} strong />
           </div>
+          {calcError && <p className="disclaimer">Check your numbers: {calcError}</p>}
           <div className="row" style={{ marginTop: 16 }}>
             <button className="btn" type="button" onClick={save}>
               Save paycheck

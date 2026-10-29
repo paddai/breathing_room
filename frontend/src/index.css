@@ -175,3 +175,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--teal-soft);
   .content { padding: 20px 16px 40px; }
   .grid-2, .grid-3, .grid-4, .split, .result-box { grid-template-columns: 1fr; }
 }
+
+/* ---------- sign in / account ---------- */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.auth-card { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+.auth-card h1 { color: var(--teal); }
+.sidebar-user { font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+.link-btn { background: none; border: none; padding: 0; color: #a9c4ba; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }
+.link-btn:hover { color: #fff; }

@@ -1,6 +1,7 @@
 package com.breathingroom.backend.controller;
 
 import com.breathingroom.backend.dto.Dtos;
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.FinanceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,6 @@ public class SummaryController {
 
     @GetMapping
     public Dtos.SummaryDto summary() {
-        return finance.summary();
+        return finance.summary(CurrentUser.id());
     }
 }

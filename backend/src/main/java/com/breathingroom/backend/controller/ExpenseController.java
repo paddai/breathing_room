@@ -2,6 +2,7 @@ package com.breathingroom.backend.controller;
 
 import com.breathingroom.backend.model.Expense;
 import com.breathingroom.backend.repository.ExpenseRepository;
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.FinanceService;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -29,7 +30,7 @@ public class ExpenseController {
 
     @GetMapping
     public List<Expense> list() {
-        List<Expense> all = new ArrayList<>(repo.findAll());
+        List<Expense> all = new ArrayList<>(repo.findByUserId(CurrentUser.id()));
         all.sort((a, b) -> Long.compare(b.getId(), a.getId())); // newest first
         return all;
     }
@@ -42,7 +43,8 @@ public class ExpenseController {
         if (body.getAmount() <= 0 || body.getAmount() > 10_000_000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than 0.");
         }
-        Expense e = new Expense(); // build a fresh object so the client can never set the id
+        Expense e = new Expense(); // fresh object: the browser can never choose the id or the owner
+        e.setUserId(CurrentUser.id());
         e.setDescription(FinanceService.clip(body.getDescription(), 120));
         e.setCategory(body.getCategory() == null || body.getCategory().isBlank() ? "Other" : FinanceService.clip(body.getCategory(), 40));
         e.setAmount(body.getAmount());
@@ -52,7 +54,7 @@ public class ExpenseController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        repo.deleteById(id);
+        repo.findByIdAndUserId(id, CurrentUser.id()).ifPresent(repo::delete); // someone else's row is simply not found
         return ResponseEntity.noContent().build();
     }
 }

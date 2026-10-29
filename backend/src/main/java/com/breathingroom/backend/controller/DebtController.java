@@ -2,6 +2,7 @@ package com.breathingroom.backend.controller;
 
 import com.breathingroom.backend.model.Debt;
 import com.breathingroom.backend.repository.DebtRepository;
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.FinanceService;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +29,7 @@ public class DebtController {
 
     @GetMapping
     public List<Debt> list() {
-        List<Debt> all = new ArrayList<>(repo.findAll());
+        List<Debt> all = new ArrayList<>(repo.findByUserId(CurrentUser.id()));
         all.sort((a, b) -> Long.compare(a.getId(), b.getId()));
         return all;
     }
@@ -45,6 +46,7 @@ public class DebtController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "APR must be 0-100 and the minimum payment cannot be negative.");
         }
         Debt d = new Debt();
+        d.setUserId(CurrentUser.id());
         d.setName(FinanceService.clip(body.getName(), 60));
         d.setBalance(body.getBalance());
         d.setApr(body.getApr());
@@ -54,7 +56,7 @@ public class DebtController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        repo.deleteById(id);
+        repo.findByIdAndUserId(id, CurrentUser.id()).ifPresent(repo::delete);
         return ResponseEntity.noContent().build();
     }
 }

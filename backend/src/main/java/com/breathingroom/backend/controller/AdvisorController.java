@@ -1,6 +1,7 @@
 package com.breathingroom.backend.controller;
 
 import com.breathingroom.backend.dto.Dtos;
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.AdvisorService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,11 +26,11 @@ public class AdvisorController {
 
     @GetMapping("/recommendation")
     public Dtos.RecommendationDto recommendation() {
-        return advisor.recommendation();
+        return advisor.recommendation(CurrentUser.id());
     }
 
     @PostMapping("/advisor/ask")
     public Dtos.AskResponse ask(@RequestBody Dtos.AskRequest body) {
-        return advisor.ask(body.question());
+        return advisor.ask(CurrentUser.id(), body.question());
     }
 }

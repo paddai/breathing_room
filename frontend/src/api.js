@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
+import { clearSession, getToken } from "./auth/authStore";
 
 // All calls go to /api/... and Vite's proxy forwards them to Spring Boot (see vite.config.js).
+// The signed-in user's token is added to every request automatically.
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers = { "Content-Type": "application/json" };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`/api${path}`, { ...options, headers });
+
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    // our token is missing, expired or invalid: sign out so the login page appears
+    clearSession();
+    window.dispatchEvent(new Event("auth:expired"));
+  }
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
