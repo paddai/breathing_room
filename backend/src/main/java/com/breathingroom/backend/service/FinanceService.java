@@ -2,26 +2,15 @@ package com.breathingroom.backend.service;
 
 import com.breathingroom.backend.dto.Dtos;
 import com.breathingroom.backend.logic.GoalMath;
-import com.breathingroom.backend.model.Debt;
-import com.breathingroom.backend.model.Deduction;
-import com.breathingroom.backend.model.Expense;
-import com.breathingroom.backend.model.Goal;
-import com.breathingroom.backend.model.PaycheckProfile;
-import com.breathingroom.backend.repository.DebtRepository;
-import com.breathingroom.backend.repository.DeductionRepository;
-import com.breathingroom.backend.repository.ExpenseRepository;
-import com.breathingroom.backend.repository.GoalRepository;
-import com.breathingroom.backend.repository.PaycheckProfileRepository;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import com.breathingroom.backend.model.*;
+import com.breathingroom.backend.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.*;
 
 /** All the deterministic money math. Java calculates; nothing in here talks to an AI. */
 @Service
