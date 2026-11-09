@@ -29,12 +29,12 @@ export function Stat({ label, value, tone, hint }) {
   );
 }
 
-export function Field({ label, children, hint }) {
+export function Field({ label, children, hint, error }) {
   return (
-    <label className="field">
+    <label className={"field" + (error ? " has-error" : "")}>
       <span>{label}</span>
       {children}
-      {hint && <small>{hint}</small>}
+      {error ? <small className="field-error">{error}</small> : hint && <small>{hint}</small>}
     </label>
   );
 }
@@ -61,11 +61,16 @@ export function Loading({ text = "Loading..." }) {
 }
 
 export function ErrorBox({ message }) {
+  const network = /Cannot reach the server/i.test(message || "");
   return (
     <Notice tone="bad">
-      <strong>Something went wrong:</strong> {message}
-      <br />
-      Is the backend running on port 8080? (See the README, step 3.)
+      <strong>{network ? "The app cannot reach the server." : "Something went wrong."}</strong> {message}
+      {network && (
+        <>
+          <br />
+          Start the backend (see the README, step 3) and try again.
+        </>
+      )}
     </Notice>
   );
 }

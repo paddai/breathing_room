@@ -17,6 +17,8 @@ public class Debt {
 
     private double minPayment;
 
+    private Long userId;
+
     public Debt() {}
 
     public Long getId() { return id; }
@@ -33,5 +35,8 @@ public class Debt {
 
     public double getMinPayment() { return minPayment; }
     public void setMinPayment(double minPayment) { this.minPayment = minPayment; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
 }

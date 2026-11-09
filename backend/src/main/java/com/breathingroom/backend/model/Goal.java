@@ -20,6 +20,8 @@ public class Goal {
 
     private double monthlyContribution;
 
+    private Long userId;
+
     public Goal() {}
 
     public Long getId() { return id; }
@@ -39,5 +41,8 @@ public class Goal {
 
     public double getMonthlyContribution() { return monthlyContribution; }
     public void setMonthlyContribution(double monthlyContribution) { this.monthlyContribution = monthlyContribution; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
 
 }

@@ -51,6 +51,52 @@ public final class Dtos {
 
     public record AddSavingsRequest(double amount) {}
 
+    // ---- Payoff, scenario and paycheck preview (all calculated in Java) ----
+    public record DebtInput(String name, double balance, double apr, double minPayment) {}
+
+    public record PayoffRequest(Double extra, List<DebtInput> debts) {}
+
+    public record PayoffStep(String name, int month) {}
+
+    public record PayoffResult(String strategy, int months, boolean paidOff, double totalInterest, List<PayoffStep> order) {}
+
+    public record PayoffComparison(double extra, int debtCount, double totalDebt, PayoffResult avalanche, PayoffResult snowball,
+                                   PayoffResult minimumsOnly, String message) {}
+
+    public record ScenarioDto(boolean applicable, String note, double freedGrossPerMonth, double extraToDebtPerMonth, double afterTaxPercent,
+                              String targetDebt, double targetApr, PayoffResult current, PayoffResult alternative, int monthsSaved,
+                              double interestSaved, double retirementGivenUp, String caution) {}
+
+    public record PaycheckPreview(double grossPerPeriod, int periodsPerYear, double grossPerYear, double totalDeductions,
+                                  double k401PerPeriod, double employerMatchPerPeriod, double takeHomePerPeriod, double takeHomePerMonth) {}
+
+    // ---- Accounts ----
+    public record AuthRequest(String email, String password) {}
+
+    public record PasswordRequest(String password) {}
+
+    public record UserDto(Long id, String email) {}
+
+    public record AuthResponse(String token, long expiresInSeconds, UserDto user) {}
+
+    // ---- Profile ----
+    public record ProfileDto(Long id, String email, String displayName, boolean hasAvatar) {}
+
+    public record ProfileUpdate(String displayName) {}
+
+    public record AvatarUpload(String contentType, String data) {}
+
+    // ---- Health check (compares your numbers with published benchmarks) ----
+    public record SourceRef(String id, String label, String url, String asOf) {}
+
+    public record InsightDto(String id, String severity, String title, String detail, List<SourceRef> sources) {}
+
+    public record InsightsDto(String dataNote, int attentionCount, List<InsightDto> insights) {}
+
+    public record BenchmarkDto(String id, String label, double value, String unit, String kind, String asOf, String source, String url, String note) {}
+
+    public record InsightExplanation(String explanation, boolean aiUsed, String note) {}
+
     // ---- Advisor ----
     public record AskRequest(String question) {}
 

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, useLoad } from "../api";
 import { money } from "../format";
 import { Badge, Bar, Card, ErrorBox, Field, Loading, Notice, PageHead, statusTone } from "../components/ui";
+import HealthCheck from "../components/HealthCheck";
 
 // Java builds every number and option; the AI (if a key is set) only explains / picks one option.
 const loadAdvisor = async () => {
@@ -67,6 +68,8 @@ export default function AdvisorPage() {
           : "AI explanations are off on this computer (no OPENAI_API_KEY). You still get built-in suggestions - see Settings."}
       </Notice>
       {actionError && <ErrorBox message={actionError} />}
+
+      <HealthCheck />
 
       {r.facts.hasData && (
         <Card className={r.facts.flagged ? "accent-alert" : "accent-teal"} title="Your 401(k) and debt">

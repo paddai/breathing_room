@@ -1,8 +1,10 @@
 package com.breathingroom.backend.controller;
 
 import com.breathingroom.backend.dto.Dtos;
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.FinanceService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,12 +22,19 @@ public class PaycheckController {
 
     @GetMapping
     public Dtos.PaycheckDto get() {
-        return finance.paycheck();
+        return finance.paycheck(CurrentUser.id());
+    }
+
+    /** Live calculation for the form. Saves nothing. */
+    @PostMapping("/preview")
+    public Dtos.PaycheckPreview preview(@RequestBody Dtos.PaycheckDto body) {
+        return finance.preview(body);
     }
 
     @PutMapping
     public Dtos.PaycheckDto save(@RequestBody Dtos.PaycheckDto body) {
-        finance.savePaycheck(body);
-        return finance.paycheck();
+        Long userId = CurrentUser.id();
+        finance.savePaycheck(userId, body);
+        return finance.paycheck(userId);
     }
 }

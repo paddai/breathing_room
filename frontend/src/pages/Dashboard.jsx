@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { api, useLoad } from "../api";
 import { money } from "../format";
-import { Bar, Card, ErrorBox, Loading, Notice, PageHead, Stat } from "../components/ui";
+import { Badge, Bar, Card, ErrorBox, Loading, Notice, PageHead, Stat } from "../components/ui";
 
 const loadDashboard = async () => {
-  const [summary, recommendation] = await Promise.all([api.get("/summary"), api.get("/recommendation")]);
-  return { summary, recommendation };
+  // the health check is a bonus: if it fails, the rest of the dashboard still shows
+  const [summary, recommendation, health] = await Promise.all([api.get("/summary"), api.get("/recommendation"), api.get("/insights").catch(() => null)]);
+  return { summary, recommendation, health };
 };
 
 export default function Dashboard() {
@@ -14,7 +15,8 @@ export default function Dashboard() {
   if (loading) return <Loading />;
   if (error) return <ErrorBox message={error} />;
 
-  const { summary: s, recommendation: r } = data;
+  const { summary: s, recommendation: r, health } = data;
+  const attention = health ? health.insights.filter((i) => i.severity === "ALERT" || i.severity === "WATCH").slice(0, 3) : [];
   const categories = Object.entries(s.spendingByCategory).sort((a, b) => b[1] - a[1]);
   const goalPercent = s.goalsTarget > 0 ? (s.goalsSaved / s.goalsTarget) * 100 : 0;
 
@@ -99,6 +101,20 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {attention.length > 0 && (
+        <Card className="accent-alert" title="Financial health check">
+          {attention.map((i) => (
+            <div key={i.id} className="list-row">
+              <span>{i.title}</span>
+              <Badge tone={i.severity === "ALERT" ? "bad" : "warn"}>{i.severity === "ALERT" ? "Needs attention" : "Worth a look"}</Badge>
+            </div>
+          ))}
+          <p className="small" style={{ marginBottom: 0 }}>
+            <Link to="/advisor">See the full health check, with sources</Link>
+          </p>
+        </Card>
+      )}
 
       {r.facts.flagged && (
         <Card className="accent-alert" title="Worth a look: 401(k) vs. high-interest debt">
