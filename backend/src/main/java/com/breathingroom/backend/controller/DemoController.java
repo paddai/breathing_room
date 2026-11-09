@@ -1,5 +1,6 @@
 package com.breathingroom.backend.controller;
 
+import com.breathingroom.backend.security.CurrentUser;
 import com.breathingroom.backend.service.DemoDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,15 +18,17 @@ public class DemoController {
         this.demo = demo;
     }
 
+    /** Replaces the signed-in user's data with sample data. Other users are not touched. */
     @PostMapping("/seed")
     public ResponseEntity<Void> seed() {
-        demo.seed();
+        demo.seed(CurrentUser.id());
         return ResponseEntity.noContent().build();
     }
 
+    /** Deletes the signed-in user's data (the account itself stays). */
     @DeleteMapping
     public ResponseEntity<Void> reset() {
-        demo.reset();
+        demo.reset(CurrentUser.id());
         return ResponseEntity.noContent().build();
     }
 }

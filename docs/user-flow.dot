@@ -1,0 +1,40 @@
+digraph G {
+  rankdir=LR; nodesep=0.35; ranksep=0.55; bgcolor="white"; pad=0.3;
+  node [fontname="Carlito", fontsize=13, shape=box, style="rounded,filled", fillcolor="#F4F8F5", color="#1F6F5C", penwidth=1.6, margin="0.18,0.10"];
+  edge [color="#54685D", arrowsize=0.8, fontname="Carlito", fontsize=11];
+  labelloc="t"; fontname="Carlito"; fontsize=22; fontcolor="#1F6F5C";
+  label=<<B>Breathing Room: user flow</B>>;
+
+  start [label="Open the app", shape=oval, fillcolor="#E4F0EA"];
+  acct  [label="Have an account?", shape=diamond, fillcolor="#FFF2CC", color="#B58A1E"];
+  signup [label="Create account\n(email + password)"];
+  signin [label="Sign in"];
+  dash  [label="Dashboard\nfree money, spending,\ngoals, alerts", fillcolor="#E4F0EA"];
+
+  subgraph cluster_in { label="1. Enter your numbers"; fontname="Carlito"; fontsize=14; color="#C8D1C4"; style="rounded";
+    pay [label="Paycheck\npay, deductions, 401(k), match\n(take-home calculated by Java)"];
+    exp [label="Budget & Expenses\nlog spending by category"];
+    debt [label="Debts\nbalance, APR, minimum"];
+  }
+  subgraph cluster_plan { label="2. See your plan (all math in Java)"; fontname="Carlito"; fontsize=14; color="#C8D1C4"; style="rounded";
+    payoff [label="Debt Payoff\navalanche vs snowball\nvs minimums only"];
+    rec [label="401(k) vs Debt\nmatch check + what-if\nscenario"];
+  }
+  subgraph cluster_goal { label="3. Set goals and decide"; fontname="Carlito"; fontsize=14; color="#C8D1C4"; style="rounded";
+    goals [label="Goals\ntarget, date, monthly amount"];
+    adv [label="Advisor\nJava builds options,\nAI explains"];
+    ok [label="You approve or decline", shape=diamond, fillcolor="#FFF2CC", color="#B58A1E"];
+    log [label="Goal updated and\ndecision logged"];
+  }
+  settings [label="Settings\nsample data, delete data,\ndelete account, sign out"];
+
+  start -> acct;
+  acct -> signin [label="yes"]; acct -> signup [label="no"];
+  signup -> dash; signin -> dash;
+  dash -> pay; dash -> exp; dash -> debt;
+  pay -> payoff [style=invis]; debt -> payoff; debt -> rec; pay -> rec; exp -> dash [label="free money", style=dashed];
+  payoff -> goals; rec -> goals;
+  goals -> adv; adv -> ok; ok -> log [label="approve"]; ok -> adv [label="decline", style=dashed];
+  log -> dash [label="updated plan", style=dashed];
+  dash -> settings [style=dashed];
+}

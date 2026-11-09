@@ -175,3 +175,34 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--teal-soft);
   .content { padding: 20px 16px 40px; }
   .grid-2, .grid-3, .grid-4, .split, .result-box { grid-template-columns: 1fr; }
 }
+
+/* ---------- sign in / account ---------- */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.auth-card { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+.auth-card h1 { color: var(--teal); }
+.sidebar-user { font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+.link-btn { background: none; border: none; padding: 0; color: #a9c4ba; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }
+.link-btn:hover { color: #fff; }
+
+/* ---------- field errors, avatar, profile ---------- */
+.field.has-error input, .field.has-error select, .field.has-error textarea { border-color: var(--alert); background: #fff8f5; }
+.field-error { color: var(--alert); font-weight: 600; }
+.sidebar { overflow-y: auto; }
+.avatar { border-radius: 50%; object-fit: cover; flex: none; background: var(--teal-soft); }
+.avatar-fallback { display: flex; align-items: center; justify-content: center; background: var(--gold); color: #fff; font-weight: 700; }
+.user-badge { display: flex; align-items: center; gap: 10px; padding: 10px; margin: 0 0 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: #fff; text-decoration: none; }
+.user-badge:hover { background: rgba(255, 255, 255, 0.14); }
+.user-badge .who { min-width: 0; line-height: 1.25; }
+.user-badge .who strong { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-badge .who span { font-size: 12px; color: #a9c4ba; }
+.signout-btn { display: block; width: 100%; margin: 0 0 14px; padding: 7px 12px; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 20px; background: transparent; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.signout-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.profile-head { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+
+/* ---------- health check ---------- */
+.insight { padding: 12px 0; border-top: 1px solid var(--line); }
+.insight:first-of-type { border-top: 0; }
+.table-wrap { overflow-x: auto; margin-top: 12px; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th, .table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.table th { color: var(--ink-soft); font-weight: 600; }

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, useLoad } from "../api";
 import { money, pct } from "../format";
 import { Badge, Card, ErrorBox, Loading, Notice, PageHead, Stat } from "../components/ui";
+import ScenarioCard from "../components/ScenarioCard";
 
 const loadRecommendation = () => api.get("/recommendation");
 
@@ -51,6 +52,8 @@ export default function RecommendationScreen() {
               anything. This is educational guidance, not financial, tax, or investment advice.
             </p>
           </Card>
+
+          <ScenarioCard />
 
           {f.flagged && (
             <Card title="Your options (you decide)">

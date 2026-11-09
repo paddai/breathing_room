@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, useLoad } from "../api";
 import { money, num } from "../format";
-import { Badge, Bar, Card, ErrorBox, Field, Loading, PageHead, statusTone } from "../components/ui";
+import { validateGoal } from "../validate";
+import { Badge, Bar, Card, ErrorBox, Field, Loading, Notice, PageHead, statusTone } from "../components/ui";
 
 const loadGoals = () => api.get("/goals");
 
@@ -13,42 +14,69 @@ export default function GoalsPage() {
   const [saved, setSaved] = useState("");
   const [date, setDate] = useState("");
   const [monthly, setMonthly] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
   const [addAmounts, setAddAmounts] = useState({});
+  const [rowErrors, setRowErrors] = useState({}); // goal id -> message shown under that goal
+
+  const clear = (key) =>
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const { [key]: _gone, ...rest } = prev;
+      return rest;
+    });
+  const bind = (setter, key) => (e) => {
+    setter(e.target.value);
+    clear(key);
+  };
 
   async function create(e) {
     e.preventDefault();
     setFormError(null);
+    const errs = validateGoal({ name, target, saved, date, monthly });
+    setFieldErrors(errs);
+    if (Object.keys(errs).length) {
+      setFormError("Please fix the highlighted fields.");
+      return;
+    }
     try {
-      await api.post("/goals", {
-        name,
-        targetAmount: num(target),
-        savedAmount: num(saved),
-        targetDate: date,
-        monthlyContribution: num(monthly),
-      });
+      await api.post("/goals", { name, targetAmount: num(target), savedAmount: num(saved), targetDate: date, monthlyContribution: num(monthly) });
       setName("");
       setTarget("");
       setSaved("");
       setDate("");
       setMonthly("");
+      setFieldErrors({});
       reload();
     } catch (err) {
+      if (err.fieldErrors) setFieldErrors(err.fieldErrors);
       setFormError(err.message);
     }
   }
 
   async function addSavings(id) {
-    const amount = num(addAmounts[id]);
-    if (amount <= 0) return;
-    await api.post(`/goals/${id}/savings`, { amount });
-    setAddAmounts({ ...addAmounts, [id]: "" });
-    reload();
+    const raw = addAmounts[id];
+    if (raw === undefined || String(raw).trim() === "" || !(num(raw) > 0)) {
+      setRowErrors({ ...rowErrors, [id]: "Enter the amount you saved, more than 0." });
+      return;
+    }
+    try {
+      await api.post(`/goals/${id}/savings`, { amount: num(raw) });
+      setAddAmounts({ ...addAmounts, [id]: "" });
+      setRowErrors({ ...rowErrors, [id]: null });
+      reload();
+    } catch (err) {
+      setRowErrors({ ...rowErrors, [id]: err.message });
+    }
   }
 
   async function remove(id) {
-    await api.del(`/goals/${id}`);
-    reload();
+    try {
+      await api.del(`/goals/${id}`);
+      reload();
+    } catch (err) {
+      setRowErrors({ ...rowErrors, [id]: err.message });
+    }
   }
 
   if (loading) return <Loading />;
@@ -79,8 +107,8 @@ export default function GoalsPage() {
               </div>
               <Bar percent={g.percentComplete} tone={g.status === "Needs attention" ? "warn" : g.status === "Overdue" ? "bad" : ""} />
               <p className="muted small" style={{ marginTop: 10 }}>
-                Target date {g.targetDate} ({g.monthsLeft} months left) · Saving {money(g.monthlyContribution)}/month · Needs{" "}
-                {money(g.requiredMonthly)}/month to finish on time
+                Target date {g.targetDate} ({g.monthsLeft} months left) · Saving {money(g.monthlyContribution)}/month · Needs {money(g.requiredMonthly)}/month to
+                finish on time
               </p>
               <div className="row">
                 <input
@@ -88,7 +116,10 @@ export default function GoalsPage() {
                   style={{ width: 130 }}
                   placeholder="Add savings"
                   value={addAmounts[g.id] || ""}
-                  onChange={(e) => setAddAmounts({ ...addAmounts, [g.id]: e.target.value })}
+                  onChange={(e) => {
+                    setAddAmounts({ ...addAmounts, [g.id]: e.target.value });
+                    setRowErrors({ ...rowErrors, [g.id]: null });
+                  }}
                 />
                 <button type="button" className="btn small" onClick={() => addSavings(g.id)}>
                   Add
@@ -97,6 +128,7 @@ export default function GoalsPage() {
                   Delete
                 </button>
               </div>
+              {rowErrors[g.id] && <p className="field-error small" style={{ margin: "6px 0 0" }}>{rowErrors[g.id]}</p>}
             </Card>
           ))}
           {goals.length > 0 && (
@@ -107,22 +139,22 @@ export default function GoalsPage() {
         </div>
 
         <Card title="Add a goal">
-          {formError && <ErrorBox message={formError} />}
-          <form onSubmit={create} className="grid">
-            <Field label="Goal name">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Emergency fund" />
+          {formError && <Notice tone="bad">{formError}</Notice>}
+          <form onSubmit={create} className="grid" noValidate>
+            <Field label="Goal name" error={fieldErrors.name}>
+              <input value={name} onChange={bind(setName, "name")} placeholder="Emergency fund" />
             </Field>
-            <Field label="Target amount">
-              <input type="number" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="6000" />
+            <Field label="Target amount" error={fieldErrors.targetAmount}>
+              <input type="number" value={target} onChange={bind(setTarget, "targetAmount")} placeholder="6000" />
             </Field>
-            <Field label="Saved so far">
-              <input type="number" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" />
+            <Field label="Saved so far" hint="Optional. Leave blank if you are starting from zero." error={fieldErrors.savedAmount}>
+              <input type="number" value={saved} onChange={bind(setSaved, "savedAmount")} placeholder="0" />
             </Field>
-            <Field label="Target date">
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Field label="Target date" error={fieldErrors.targetDate}>
+              <input type="date" value={date} onChange={bind(setDate, "targetDate")} />
             </Field>
-            <Field label="Monthly amount you plan to save" hint="Optional - the Advisor can suggest one.">
-              <input type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="0" />
+            <Field label="Monthly amount you plan to save" hint="Optional - the Advisor can suggest one." error={fieldErrors.monthlyContribution}>
+              <input type="number" value={monthly} onChange={bind(setMonthly, "monthlyContribution")} placeholder="0" />
             </Field>
             <button className="btn" type="submit">
               Add goal
