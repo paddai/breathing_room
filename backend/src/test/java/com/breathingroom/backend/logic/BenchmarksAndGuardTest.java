@@ -34,4 +34,12 @@ class BenchmarksAndGuardTest {
         assertTrue(NumberGuard.containsUnknownNumber("You could save $900.", facts));
         assertFalse(NumberGuard.containsUnknownNumber("Nothing numeric here.", facts));
     }
+
+    @Test
+    void unknownNumbersListsOnlyTheFiguresJavaDidNotSupply() {
+        java.util.List<String> bad = NumberGuard.unknownNumbers("Pay $100.00 now, save $55 and 9% more; rate is 22.4%.",
+                java.util.List.of("$100.00", "22.36%"));
+        assertEquals(2, bad.size());
+        assertTrue(bad.contains("$55") && bad.contains("9%"));
+    }
 }

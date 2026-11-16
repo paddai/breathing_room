@@ -70,8 +70,9 @@ All bodies are JSON. **Everything except the three public endpoints needs `Autho
 | GET | `/goals/{id}/advice` | none | options built by Java, a suggested one, and an explanation. **Changes nothing.** |
 | POST | `/goals/{id}/decision` | `{ optionId, status: "APPROVED" or "DECLINED" }` | updated goal. The option is re-checked on the server. |
 | GET | `/goal-decisions` | none | the 15 most recent approvals and declines |
-| GET | `/advisor/status` | none | `{ configured, model }` |
-| POST | `/advisor/ask` | `{ question }` (300 characters max) | `{ answer, aiUsed, note }` |
+| GET | `/advisor/status` | none | `{ configured, model, provider }` |
+| POST | `/advisor/test` | none | `{ ok, message }` - makes one real AI call to prove the key works |
+| POST | `/advisor/ask` | `{ question }` (300 characters max) | `{ answer, aiUsed, note, intent, options: [{ label, detail, tradeoff }] }` |
 
 ## Sample data
 
@@ -94,8 +95,8 @@ Field names match the JSON names in the request (for example `hourlyRate`, `targ
 
 | Code | Meaning |
 |---|---|
-| 400 | A value failed validation. The `message` says what to fix. |
+| 400 | A value failed validation. The `message` says what to fix, and `fieldErrors` names the input when there is one (sign-up: `email` or `password`). |
 | 401 | Not signed in, token expired, or wrong email or password. |
 | 404 | The goal does not exist (or belongs to someone else). |
-| 409 | An account with that email already exists. |
+| 409 | Sign-up only: an account with that email already exists. The answer has `fieldErrors.email`, so the screen shows the message beside the email box. |
 | 429 | Too many failed sign-ins. Wait about 10 minutes. |

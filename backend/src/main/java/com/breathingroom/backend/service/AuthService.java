@@ -7,6 +7,9 @@ import com.breathingroom.backend.logic.TokenService;
 import com.breathingroom.backend.model.AppUser;
 import com.breathingroom.backend.repository.AppUserRepository;
 import com.breathingroom.backend.repository.UserAvatarRepository;
+import com.breathingroom.backend.logic.AuthMessages;
+import com.breathingroom.backend.validation.FieldValidationException;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,10 +47,13 @@ public class AuthService {
     @Transactional
     public Dtos.AuthResponse register(Dtos.AuthRequest req) {
         String email = PasswordPolicy.normalizeEmail(req == null ? null : req.email());
-        if (!PasswordPolicy.validEmail(email)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid email address.");
+        if (!PasswordPolicy.validEmail(email)) throw new FieldValidationException(Map.of("email", "Enter a valid email address."));
         Optional<String> problem = PasswordPolicy.validate(req.password(), email);
-        if (problem.isPresent()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, problem.get());
-        if (users.existsByEmail(email)) throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with that email already exists. Try signing in.");
+        if (problem.isPresent()) throw new FieldValidationException(Map.of("password", problem.get()));
+        if (users.existsByEmail(email)) {
+            // 409 Conflict, with the message attached to the email box so the sign-up screen can show it there.
+            throw new FieldValidationException(409, Map.of("email", AuthMessages.EMAIL_TAKEN));
+        }
 
         AppUser u = new AppUser();
         u.setEmail(email);

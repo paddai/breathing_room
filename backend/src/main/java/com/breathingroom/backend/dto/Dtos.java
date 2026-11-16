@@ -100,7 +100,13 @@ public final class Dtos {
     // ---- Advisor ----
     public record AskRequest(String question) {}
 
-    public record AskResponse(String answer, boolean aiUsed, String note) {}
+    public record AdviceOption(String label, String detail, String tradeoff) {}
 
-    public record AiStatus(boolean configured, String model) {}
+    /** intent: DEBT, RETIREMENT, SAVINGS, SPENDING or GENERAL. options: 0-3 Java-calculated choices with trade-offs. */
+    public record AskResponse(String answer, boolean aiUsed, String note, String intent, List<AdviceOption> options) {}
+
+    public record AiStatus(boolean configured, String model, String provider) {}
+
+    /** Result of a live test call: ok is true only if the provider really answered. */
+    public record AiTestResult(boolean ok, String message) {}
 }

@@ -1,7 +1,10 @@
 package com.breathingroom.backend.logic;
 
-/** Take-home pay math. One place for the formulas, used by the Summary and by the live preview on the Paycheck page. */
+/** Take-home pay math. Every amount is "per pay period" (with Annually, the period is the whole year). One place for the formulas, used by the Summary and by the live preview on the Paycheck page. */
 public final class PaycheckMath {
+
+    /** Every pay frequency the app accepts (the Paycheck page offers the same list). */
+    public static final java.util.List<String> FREQUENCIES = java.util.List.of("weekly", "biweekly", "semimonthly", "monthly", "annually");
 
     private PaycheckMath() {}
 
@@ -14,6 +17,7 @@ public final class PaycheckMath {
             case "weekly" -> 52;
             case "semimonthly" -> 24;
             case "monthly" -> 12;
+            case "annually" -> 1; // one paycheck-sized amount a year: the "salary" is the whole yearly salary
             default -> 26; // biweekly
         };
     }

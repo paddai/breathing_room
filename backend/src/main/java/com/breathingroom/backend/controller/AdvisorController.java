@@ -24,6 +24,11 @@ public class AdvisorController {
         return advisor.status();
     }
 
+    @PostMapping("/advisor/test")
+    public Dtos.AiTestResult test() {
+        return advisor.testConnection();
+    }
+
     @GetMapping("/recommendation")
     public Dtos.RecommendationDto recommendation() {
         return advisor.recommendation(CurrentUser.id());

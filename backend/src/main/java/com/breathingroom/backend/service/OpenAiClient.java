@@ -19,13 +19,14 @@ import org.springframework.web.client.RestClient;
  * If no key is set, or the call fails, chat() returns empty and the app falls back to built-in text.
  */
 @Service
-public class OpenAiClient {
+public class OpenAiClient implements AiClient {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiClient.class);
 
     private final RestClient http;
     private final String apiKey;
     private final String model;
+    private volatile String lastError = "";
 
     public OpenAiClient(@Value("${openai.api-key:}") String apiKey,
                         @Value("${openai.model:gpt-4.1-mini}") String model,
@@ -38,17 +39,31 @@ public class OpenAiClient {
         this.http = RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
     }
 
+    @Override
     public boolean isConfigured() {
         return !apiKey.isEmpty() && !apiKey.startsWith("YOUR_");
     }
 
+    @Override
+    public String provider() {
+        return "OpenAI";
+    }
+
+    @Override
+    public String lastError() {
+        return lastError;
+    }
+
+    @Override
     public String model() {
         return model;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public Optional<String> chat(String system, String user) {
         if (!isConfigured()) return Optional.empty();
+        lastError = "";
         try {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("model", model);
@@ -71,7 +86,8 @@ public class OpenAiClient {
             return Optional.of(content.toString());
         } catch (Exception e) {
             // Never log the key or the user's prompt (privacy). The class name is enough to debug.
-            log.warn("OpenAI call failed: {}", e.getClass().getSimpleName());
+            lastError = e instanceof org.springframework.web.client.RestClientResponseException r ? "HTTP " + r.getStatusCode().value() : e.getClass().getSimpleName();
+            log.warn("OpenAI call failed: {}", lastError);
             return Optional.empty();
         }
     }

@@ -4,7 +4,24 @@ import { money, num, todayISO } from "../format";
 import { validateExpense } from "../validate";
 import { Card, ErrorBox, Field, Loading, Notice, PageHead, Stat } from "../components/ui";
 
-const CATEGORIES = ["Housing", "Groceries", "Dining", "Transportation", "Utilities", "Shopping", "Other"];
+// Keep in step with backend logic/ExpenseCategories.java (the server rejects anything not on its list).
+const CATEGORIES = [
+  "Housing",
+  "Utilities",
+  "Groceries",
+  "Dining",
+  "Transportation",
+  "Insurance",
+  "Childcare",
+  "Education",
+  "Medical",
+  "Entertainment",
+  "Subscriptions",
+  "Savings",
+  "Travel",
+  "Household",
+  "Miscellaneous",
+];
 
 const loadBudget = async () => {
   const [expenses, summary] = await Promise.all([api.get("/expenses"), api.get("/summary")]);

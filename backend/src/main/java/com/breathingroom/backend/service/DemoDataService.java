@@ -77,6 +77,7 @@ public class DemoDataService {
         addExpense(userId, "Internet", "Utilities", 55.00, today.minusDays(5));
         addExpense(userId, "Dinner out", "Dining", 62.50, today.minusDays(1));
         addExpense(userId, "Clothes", "Shopping", 74.00, today.minusDays(7));
+        addExpense(userId, "Streaming", "Subscriptions", 15.99, today.minusDays(8));
 
         addDebt(userId, "Store card", 600, 26, 25);
         addDebt(userId, "Credit card", 4200, 24, 90);

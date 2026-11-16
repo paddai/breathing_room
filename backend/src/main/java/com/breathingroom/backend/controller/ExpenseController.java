@@ -1,5 +1,6 @@
 package com.breathingroom.backend.controller;
 
+import com.breathingroom.backend.logic.ExpenseCategories;
 import com.breathingroom.backend.model.Expense;
 import com.breathingroom.backend.repository.ExpenseRepository;
 import com.breathingroom.backend.security.CurrentUser;
@@ -44,13 +45,14 @@ public class ExpenseController {
         if (body.getDescription() == null || body.getDescription().isBlank()) errors.put("description", "Enter a description, for example \"Groceries at Aldi\".");
         else if (body.getDescription().trim().length() > 120) errors.put("description", "Use 120 characters or fewer.");
         if (body.getCategory() == null || body.getCategory().isBlank()) errors.put("category", "Choose a category.");
+        else if (!ExpenseCategories.isKnown(body.getCategory())) errors.put("category", "Choose a category from the list.");
         if (body.getAmount() <= 0) errors.put("amount", "Enter an amount greater than 0.");
         else if (body.getAmount() > 10_000_000) errors.put("amount", "That amount is too large.");
         if (!errors.isEmpty()) throw new FieldValidationException(errors);
         Expense e = new Expense(); // fresh object: the browser can never choose the id or the owner
         e.setUserId(CurrentUser.id());
         e.setDescription(FinanceService.clip(body.getDescription(), 120));
-        e.setCategory(FinanceService.clip(body.getCategory(), 40));
+        e.setCategory(body.getCategory().trim());
         e.setAmount(body.getAmount());
         e.setExpenseDate(body.getExpenseDate() == null ? LocalDate.now() : body.getExpenseDate());
         return repo.save(e);

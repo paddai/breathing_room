@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({}); // messages that belong beside one input, e.g. { email: "..." }
   const [busy, setBusy] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
@@ -19,6 +20,7 @@ export default function LoginPage() {
   async function submit(e) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     if (signup && password.length < 10) {
       setError("Use at least 10 characters for your password.");
       return;
@@ -28,7 +30,12 @@ export default function LoginPage() {
       await (signup ? register(email, password) : login(email, password));
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err.message);
+      if (err.fieldErrors) {
+        setFieldErrors(err.fieldErrors);
+        if (!err.fieldErrors.email && !err.fieldErrors.password) setError(err.message);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -41,10 +48,10 @@ export default function LoginPage() {
         <p className="page-sub">From paycheck pressure to financial clarity.</p>
 
         <div className="toggle" style={{ marginTop: 18 }}>
-          <button type="button" className={`btn ${!signup ? "on" : ""}`} onClick={() => { setMode("signin"); setError(null); }}>
+          <button type="button" className={`btn ${!signup ? "on" : ""}`} onClick={() => { setMode("signin"); setError(null); setFieldErrors({}); }}>
             Sign in
           </button>
-          <button type="button" className={`btn ${signup ? "on" : ""}`} onClick={() => { setMode("signup"); setError(null); }}>
+          <button type="button" className={`btn ${signup ? "on" : ""}`} onClick={() => { setMode("signup"); setError(null); setFieldErrors({}); }}>
             Create account
           </button>
         </div>
@@ -52,10 +59,22 @@ export default function LoginPage() {
         {error && <Notice tone="bad">{error}</Notice>}
 
         <form onSubmit={submit} className="grid">
-          <Field label="Email">
-            <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Field label="Email" error={fieldErrors.email}>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined }); }}
+              aria-invalid={fieldErrors.email ? "true" : undefined}
+              required
+            />
           </Field>
-          <Field label="Password" hint={signup ? "At least 10 characters. A short phrase only you would know works well." : undefined}>
+          {signup && fieldErrors.email && fieldErrors.email.includes("already exists") && (
+            <button type="button" className="btn secondary small" onClick={() => { setMode("signin"); setFieldErrors({}); setError(null); }}>
+              Go to sign in with this email
+            </button>
+          )}
+          <Field label="Password" error={fieldErrors.password} hint={signup ? "At least 10 characters. A short phrase only you would know works well." : undefined}>
             <input
               type="password"
               autoComplete={signup ? "new-password" : "current-password"}

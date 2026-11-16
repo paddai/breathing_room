@@ -47,7 +47,7 @@ export default function AdvisorPage() {
     try {
       setAnswer(await api.post("/advisor/ask", { question }));
     } catch (err) {
-      setAnswer({ answer: err.message, aiUsed: false, note: "" });
+      setAnswer({ answer: err.message, aiUsed: false, note: "", options: [] });
     } finally {
       setAsking(false);
     }
@@ -64,8 +64,8 @@ export default function AdvisorPage() {
 
       <Notice tone={status.configured ? "info" : "warn"}>
         {status.configured
-          ? `AI explanations are on (${status.model}). Java calculates every number; the AI only explains and picks from options Java created.`
-          : "AI explanations are off on this computer (no OPENAI_API_KEY). You still get built-in suggestions - see Settings."}
+          ? `An AI key is set (${status.provider || "AI"} ${status.model}). Each answer below says whether the AI really wrote it or the built-in text was used - check Settings to test the connection.`
+          : "AI explanations are off on this computer (no AI key set). You still get built-in answers with options and trade-offs - see Settings."}
       </Notice>
       {actionError && <ErrorBox message={actionError} />}
 
@@ -73,6 +73,9 @@ export default function AdvisorPage() {
 
       {r.facts.hasData && (
         <Card className={r.facts.flagged ? "accent-alert" : "accent-teal"} title="Your 401(k) and debt">
+          <p className="small muted">
+            Right now: you contribute {r.facts.contributionPercent}% of pay and your employer matches up to {r.facts.matchLimitPercent}%.
+          </p>
           <p>{r.explanation}</p>
           <Link to="/recommendation">See details</Link>
         </Card>
@@ -135,7 +138,7 @@ export default function AdvisorPage() {
       <h2 style={{ fontSize: 22, margin: "22px 0 12px" }}>Ask a question</h2>
       <Card>
         <form onSubmit={ask}>
-          <Field label="About your own numbers" hint="Example: Can I afford to save more each month?">
+          <Field label="About your own numbers" hint="Examples: Should I pay off my credit card or save more? Is my 401(k) too high while I have debt?">
             <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="Ask about your budget, debt, or goals" />
           </Field>
           <div className="row" style={{ marginTop: 10 }}>
@@ -147,7 +150,17 @@ export default function AdvisorPage() {
         {answer && (
           <div style={{ marginTop: 14 }}>
             <p>{answer.answer}</p>
-            {answer.note && <span className="muted small">{answer.note}</span>}
+            {(answer.options || []).map((o) => (
+              <div key={o.label} className="option">
+                <strong>{o.label}</strong>
+                <div className="small">{o.detail}</div>
+                <div className="muted small">Trade-off: {o.tradeoff}</div>
+              </div>
+            ))}
+            <div className="row">
+              {answer.aiUsed ? <Badge tone="good">Explained by AI</Badge> : <Badge>Built-in answer</Badge>}
+              {answer.note && <span className="muted small">{answer.note}</span>}
+            </div>
           </div>
         )}
         <p className="disclaimer">Educational guidance based on the numbers you entered - not financial, tax, or investment advice.</p>
