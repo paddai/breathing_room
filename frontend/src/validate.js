@@ -39,8 +39,9 @@ export function validateGoal({ name, target, saved, date, monthly }) {
 
 export function validatePaycheck(s) {
   const e = {};
+  if (s.frequency === "annually" && s.payType !== "salary") e.frequency = "Annual pay is for a yearly salary. Choose Salary, or pick how often your hourly pay arrives.";
   if (s.payType === "salary") {
-    if (!isNum(s.salaryAmount) || Number(s.salaryAmount) <= 0) e.salaryAmount = "Enter your salary for one pay period.";
+    if (!isNum(s.salaryAmount) || Number(s.salaryAmount) <= 0) e.salaryAmount = s.frequency === "annually" ? "Enter your salary for the year." : "Enter your salary for one pay period.";
   } else {
     if (!isNum(s.hourlyRate) || Number(s.hourlyRate) <= 0) e.hourlyRate = "Enter your hourly rate.";
     if (!isNum(s.regularHours) || Number(s.regularHours) <= 0) e.regularHours = "Enter the hours you work in one pay period.";

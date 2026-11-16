@@ -91,7 +91,9 @@ public class FinanceService {
             return e;
         }
         if (!"hourly".equals(d.payType()) && !"salary".equals(d.payType())) e.put("payType", "Choose Hourly or Salary.");
-        if (!List.of("weekly", "biweekly", "semimonthly", "monthly").contains(d.frequency())) e.put("frequency", "Choose how often you are paid.");
+        if (!PaycheckMath.FREQUENCIES.contains(d.frequency())) e.put("frequency", "Choose how often you are paid.");
+        else if ("annually".equals(d.frequency()) && "hourly".equals(d.payType()))
+            e.put("frequency", "Annual pay is for a yearly salary. Choose Salary, or pick how often your hourly pay arrives.");
         checkRange(e, "hourlyRate", d.hourlyRate(), 10_000, "Hourly rate");
         checkRange(e, "regularHours", d.regularHours(), 1_000, "Regular hours");
         checkRange(e, "overtimeHours", d.overtimeHours(), 1_000, "Overtime hours");

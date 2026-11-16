@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { money, num } from "../format";
 import { useDebounced } from "../hooks";
@@ -10,6 +10,7 @@ const FREQUENCIES = {
   biweekly: { label: "Biweekly", perYear: 26 },
   semimonthly: { label: "Semi-monthly", perYear: 24 },
   monthly: { label: "Monthly", perYear: 12 },
+  annually: { label: "Annually", perYear: 1 },
 };
 
 // These rows are always on the page. Leave one blank if it does not apply to you.
@@ -38,6 +39,9 @@ export default function PaycheckForm() {
   const [message, setMessage] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [frequencyNote, setFrequencyNote] = useState(null);
+  const [baseline, setBaseline] = useState(null); // what was last saved, to warn about unsaved changes
+  const captureNext = useRef(false);
 
   const clear = (key) =>
     setFieldErrors((prev) => {
@@ -45,6 +49,24 @@ export default function PaycheckForm() {
       const { [key]: _gone, ...rest } = prev;
       return rest;
     });
+  const yearly = frequency === "annually";
+  // Annually is for a yearly salary: switch to Salary and remind that the amounts below are per year.
+  const chooseFrequency = (e) => {
+    const f = e.target.value;
+    setFrequency(f);
+    if (f === "annually") setPayType("salary");
+    setFrequencyNote(null);
+    clear("frequency");
+  };
+  // Hourly pay cannot be yearly, so picking Hourly while Annually is chosen moves the frequency to Biweekly (change it again if you like).
+  const chooseHourly = () => {
+    setPayType("hourly");
+    if (frequency === "annually") {
+      setFrequency("biweekly");
+      setFrequencyNote("Pay frequency changed from Annually to Biweekly because hourly pay is paid each period. Change it if yours is different.");
+    }
+    clear("frequency");
+  };
   const bind = (setter, key) => (e) => {
     setter(e.target.value);
     if (key) clear(key);
@@ -73,6 +95,7 @@ export default function PaycheckForm() {
         });
         setDefaultAmounts(defaults);
         setCustom(extras);
+        captureNext.current = true;
       })
       .catch((e) => setLoadError(e.message));
   }, []);
@@ -95,7 +118,25 @@ export default function PaycheckForm() {
     employerMatchLimit: num(matchLimit),
     deductions,
   };
-  const settledKey = useDebounced(JSON.stringify(payload), 300);
+  const snapshot = JSON.stringify(payload);
+  const dirty = baseline !== null && snapshot !== baseline;
+  useEffect(() => {
+    if (captureNext.current) {
+      captureNext.current = false;
+      setBaseline(snapshot);
+    }
+  }, [snapshot]);
+  // Warn if the tab is closed or refreshed with unsaved changes.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  const settledKey = useDebounced(snapshot, 300);
   const [calc, setCalc] = useState(null);
   const [calcError, setCalcError] = useState(null);
   useEffect(() => {
@@ -130,7 +171,7 @@ export default function PaycheckForm() {
   async function save() {
     setMessage(null);
     setSaveError(null);
-    const errs = validatePaycheck({ payType, hourlyRate, regularHours, overtimeHours, overtimeMultiplier, salaryAmount, k401, matchRate, matchLimit, deductions: defaultAmounts });
+    const errs = validatePaycheck({ payType, frequency, hourlyRate, regularHours, overtimeHours, overtimeMultiplier, salaryAmount, k401, matchRate, matchLimit, deductions: defaultAmounts });
     setFieldErrors(errs);
     if (Object.keys(errs).length) {
       setSaveError("Your paycheck was not saved. Please fix the highlighted fields.");
@@ -138,6 +179,7 @@ export default function PaycheckForm() {
     }
     try {
       await api.put("/paycheck", payload);
+      setBaseline(snapshot);
       setMessage("Saved. Your dashboard and recommendations now use these numbers.");
     } catch (e) {
       if (e.fieldErrors) setFieldErrors(e.fieldErrors);
@@ -154,7 +196,11 @@ export default function PaycheckForm() {
         <div>
           <Card title="Gross pay">
             <div className="toggle">
-              <button type="button" className={`btn ${payType === "hourly" ? "on" : ""}`} onClick={() => setPayType("hourly")}>
+              <button
+                type="button"
+                className={`btn ${payType === "hourly" ? "on" : ""}`}
+                onClick={chooseHourly}
+              >
                 Hourly
               </button>
               <button type="button" className={`btn ${payType === "salary" ? "on" : ""}`} onClick={() => setPayType("salary")}>
@@ -162,6 +208,7 @@ export default function PaycheckForm() {
               </button>
             </div>
 
+            {frequencyNote && <Notice tone="info">{frequencyNote}</Notice>}
             {payType === "hourly" ? (
               <div className="grid grid-2">
                 <Field label="Hourly rate" error={fieldErrors.hourlyRate}>
@@ -178,14 +225,14 @@ export default function PaycheckForm() {
                 </Field>
               </div>
             ) : (
-              <Field label="Salary for this pay period" error={fieldErrors.salaryAmount}>
+              <Field label={yearly ? "Annual salary (per year)" : "Salary for this pay period"} error={fieldErrors.salaryAmount}>
                 <input type="number" value={salaryAmount} onChange={bind(setSalaryAmount, "salaryAmount")} placeholder="0.00" />
               </Field>
             )}
 
             <div style={{ marginTop: 16 }}>
               <Field label="Pay frequency" error={fieldErrors.frequency}>
-                <select value={frequency} onChange={bind(setFrequency, "frequency")}>
+                <select value={frequency} onChange={chooseFrequency}>
                   {Object.entries(FREQUENCIES).map(([key, f]) => (
                     <option key={key} value={key}>
                       {f.label}
@@ -197,7 +244,11 @@ export default function PaycheckForm() {
           </Card>
 
           <Card title="Payroll deductions">
-            <p className="muted small">Fill in what comes out of each paycheck (see your pay stub). Leave a row blank if it does not apply to you.</p>
+            <p className="muted small">
+              {yearly
+                ? "Enter what comes out of your pay in a whole year (see your pay stub or tax forms). Leave a row blank if it does not apply to you."
+                : "Fill in what comes out of each paycheck (see your pay stub). Leave a row blank if it does not apply to you."}
+            </p>
             <div className="grid grid-2">
               {DEFAULT_DEDUCTIONS.map((n) => (
                 <Field key={n} label={n}>
@@ -269,20 +320,21 @@ export default function PaycheckForm() {
 
         <Card title="Your paycheck">
           <div className="result-box">
-            <Stat2 label="Gross pay (this paycheck)" value={money(c.grossPerPeriod)} />
-            <Stat2 label={`Annual gross (${FREQUENCIES[frequency].label.toLowerCase()})`} value={money(c.grossPerYear)} />
+            <Stat2 label={yearly ? "Gross pay (per year)" : "Gross pay (this paycheck)"} value={money(c.grossPerPeriod)} />
+            <Stat2 label={yearly ? "Annual gross" : `Annual gross (${FREQUENCIES[frequency].label.toLowerCase()})`} value={money(c.grossPerYear)} />
             <Stat2 label="Total deductions" value={money(c.totalDeductions)} />
             <Stat2 label="401(k) contribution" value={money(c.k401PerPeriod)} />
             <Stat2 label="Employer match (free money)" value={money(c.employerMatchPerPeriod)} />
             <Stat2 label="Pay periods per year" value={String(c.periodsPerYear)} />
-            <Stat2 label="Estimated take-home (this paycheck)" value={money(c.takeHomePerPeriod)} strong />
+            <Stat2 label={yearly ? "Estimated take-home (per year)" : "Estimated take-home (this paycheck)"} value={money(c.takeHomePerPeriod)} strong />
             <Stat2 label="Take-home per month" value={money(c.takeHomePerMonth)} strong />
           </div>
           {calcError && <p className="disclaimer">Check your numbers: {calcError}</p>}
 
           <div style={{ marginTop: 16 }}>
             {saveError && <Notice tone="bad">{saveError}</Notice>}
-            {message && <Notice>{message}</Notice>}
+            {dirty && <Notice tone="warn">You have unsaved changes. The Advisor, Dashboard and other pages only change after you press Save paycheck.</Notice>}
+            {message && !dirty && <Notice>{message}</Notice>}
             <button className="btn" type="button" onClick={save}>
               Save paycheck
             </button>

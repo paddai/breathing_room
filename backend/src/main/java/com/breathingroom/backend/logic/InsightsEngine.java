@@ -199,7 +199,7 @@ public final class InsightsEngine {
         double take = f.monthlyTakeHome();
         if (take <= 0 || f.monthlyExpenses() <= 0) return;
         double needs = needsSpending(f) + f.monthlyDebtMinimums();
-        double wants = f.monthlyExpenses() - needsSpending(f);
+        double wants = f.monthlyExpenses() - needsSpending(f) - spent(f.spendingByCategory(), ExpenseCategories.SAVINGS); // money you set aside is saving, not a want
         double savings = take - needs - wants;
         double needsPct = needs / take * 100.0, wantsPct = wants / take * 100.0, savingsPct = savings / take * 100.0;
         String detail = "Needs (housing, utilities, groceries, transportation and minimum debt payments) are " + pc(needsPct) + " of your take-home pay against a guideline of " + pc(b("rule_needs"))

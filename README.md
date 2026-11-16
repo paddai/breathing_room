@@ -43,7 +43,7 @@ Open <http://localhost:5173>, choose **Create account**, then go to **Settings -
 Each account only ever sees its own data.
 
 ## Turn on the AI explanations (optional)
-Put your key in `backend/.env` as `OPENAI_API_KEY=...` and restart the backend. Without a key the app works the
+Put your key in `backend/.env` as `ANTHROPIC_API_KEY=...` (or `OPENAI_API_KEY=...`) and restart the backend. Anthropic is used when its key is set. Without a key the app works the
 same, using built-in explanations. The key stays on the server and is git-ignored - never paste it into React code.
 
 ## What is in the app

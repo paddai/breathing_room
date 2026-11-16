@@ -20,23 +20,24 @@ and it never connects to a bank.
 | Injection | The database layer uses parameterized queries (Spring Data JPA). Numbers, dates, text lengths, and percentages are checked on the server, not only in the browser. |
 | Errors | Users see our own short messages. Stack traces are never sent to the browser. |
 | Browser access | CORS allows only the origins listed in `CORS_ALLOWED_ORIGINS` (default: the local dev site). |
-| Secrets | `.env` files are git-ignored. The OpenAI key lives only on the server and is never in the React code. |
+| Secrets | `.env` files are git-ignored. The AI key (Anthropic or OpenAI) lives only on the server and is never in the React code. |
 | Profile picture | Accepted only if the file's own first bytes say JPEG, PNG or WebP (the browser's claim is ignored), at most 512 KB. The browser also re-draws it as a small square JPEG, which removes anything hidden in the original. It is stored in its own table, served only to its owner with `X-Content-Type-Options: nosniff`, and deleted with the account. |
 | Outside financial data | Published figures are constants in the program. No user data is sent anywhere to get them. The AI only receives the same numbers the app already calculated, and any dollar or percent figure in its wording that Java did not supply is rejected. |
 | Your control | "Delete all my data" and "Delete my account" (asks for your password again) remove everything the account owns. |
 
-## The AI part (OpenAI)
+## The AI part (Anthropic, or OpenAI as an alternative)
 
-- Java calculates every number and builds every option. The AI only explains, or picks one option Java created.
-- If an AI reply contains a dollar figure Java did not calculate, the reply is thrown away and built-in text is shown.
+- Java calculates every number and builds every option (AdvisorPlanner, DebtPayoff, ScenarioMath, GoalMath). The AI only explains them and adds general context, or picks one option Java created.
+- If an AI reply contains a dollar or percent figure Java did not calculate, the reply is thrown away and built-in text is shown.
 - The AI cannot change anything. Only the signed-in user's approval does, and the server re-checks the option first.
-- What is sent to OpenAI: summary figures for the question being explained (for example a goal name, its target, and monthly amounts).
+- What is sent to the AI provider: summary figures and options for the question being explained (income, free money, debts and rates, goal targets, 401(k) percentages).
   Not the email, password, or name.
-- Each account can trigger a limited number of AI replies per day (default 40) to protect the OpenAI bill.
+- Each account can trigger a limited number of AI replies per day (default 40) to protect the AI bill.
 - Prompts and keys are never logged.
 
 ## Known limits (be honest about these)
 
+- **Sign-up tells you when an email is already registered.** The message "An account with this email already exists" is friendlier, but it lets a stranger test whether an email has an account (user enumeration). Sign-in does not leak this: wrong email and wrong password give the same answer. A production version would send a "check your email" message instead, which needs the email check below.
 - **No email check and no password reset.** Anyone can sign up with any email, and a forgotten password cannot be recovered yet.
 - **No two-step sign-in.**
 - **The sign-in pause lives in memory and is per email.** It resets when the backend restarts, and there is no per-IP limit or limit on sign-ups.

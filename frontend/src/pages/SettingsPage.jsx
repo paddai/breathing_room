@@ -8,6 +8,19 @@ const loadStatus = () => api.get("/advisor/status");
 export default function SettingsPage() {
   const { user, logout, deleteAccount } = useAuth();
   const { data: status, error, loading } = useLoad(loadStatus);
+  const [aiTest, setAiTest] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  async function testAi() {
+    setTesting(true);
+    try {
+      setAiTest(await api.post("/advisor/test", {}));
+    } catch (e) {
+      setAiTest({ ok: false, message: e.message });
+    } finally {
+      setTesting(false);
+    }
+  }
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -76,21 +89,36 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card title="AI advisor (OpenAI)">
-        <div className="row">{status.configured ? <Badge tone="good">On - {status.model}</Badge> : <Badge tone="warn">Off</Badge>}</div>
+      <Card title="AI advisor">
+        <div className="row">
+          {aiTest ? (
+            aiTest.ok ? <Badge tone="good">Working - {status.provider} {status.model}</Badge> : <Badge tone="bad">Not working</Badge>
+          ) : status.configured ? (
+            <Badge tone="warn">Key found - not tested yet</Badge>
+          ) : (
+            <Badge tone="warn">Off - no key</Badge>
+          )}
+          <button type="button" className="btn secondary small" disabled={testing || !status.configured} onClick={testAi}>
+            {testing ? "Testing..." : "Test AI connection"}
+          </button>
+        </div>
+        {aiTest && <p className="small" style={{ marginTop: 10 }}>{aiTest.message}</p>}
+        {status.configured && !aiTest && (
+          <p className="muted small" style={{ marginTop: 10 }}>A key being present does not prove it works. Press Test AI connection to check.</p>
+        )}
         {!status.configured && (
           <p className="muted small" style={{ marginTop: 10 }}>
-            To turn it on, copy <code>backend/.env.example</code> to <code>backend/.env</code>, add your <code>OPENAI_API_KEY</code>, and restart the backend. The
+            To turn it on, copy <code>backend/.env.example</code> to <code>backend/.env</code>, add your <code>ANTHROPIC_API_KEY</code> (or <code>OPENAI_API_KEY</code>), and restart the backend. The
             key stays on the server and is never committed to Git.
           </p>
         )}
       </Card>
 
-      <Card title="What is sent to OpenAI?">
+      <Card title="What is sent to the AI?">
         <p className="small">
-          Only when AI is on: the summary figures Java already calculated for the question being explained (for example a goal name, its target, and monthly
-          amounts). Never your email, password, or name. The AI cannot change your data; it can only suggest, and every change needs your approval. If an AI
-          reply contains a dollar figure the app did not calculate, it is discarded. Each account can trigger a limited number of AI replies per day.
+          Only when AI is on: the summary figures and options the app already calculated for the question being explained (for example income, free money, debt balances and rates, goal
+          targets, and 401(k) percentages). Never your email, password, or name. The AI cannot change your data; it can only suggest, and every change needs your approval. If an AI
+          reply contains a dollar or percent figure the app did not calculate, it is discarded. Each account can trigger a limited number of AI replies per day.
         </p>
       </Card>
 
